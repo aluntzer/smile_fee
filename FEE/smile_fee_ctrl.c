@@ -1861,19 +1861,24 @@ int smile_fee_sync_execute_op(enum sync_direction dir)
 
 
 
-
-
-
-
 /**
  * @brief initialise the smile_fee control library
+ *
+ * @param fee_mirror the desired FEE mirror, set NULL to allocate it for you
  */
 
-void smile_fee_ctrl_init(void)
+void smile_fee_ctrl_init(struct smile_fee_mirror *fee_mirror)
 {
-	smile_fee = (struct smile_fee_mirror *) malloc(sizeof(struct smile_fee_mirror));
-	if (!smile_fee)
+	if (!fee_mirror)
+		smile_fee = (struct smile_fee_mirror *)
+				malloc(sizeof(struct smile_fee_mirror));
+	else
+		smile_fee = fee_mirror;
+
+	if (!smile_fee) {
 		printf("Error allocating memory for the SMILE_FEE mirror\n");
+		return;
+	}
 
 	bzero(smile_fee, sizeof(struct smile_fee_mirror));
 }

@@ -239,7 +239,7 @@ void smile_fee_set_execute_op(uint32_t mode);
 
 
 /* setup */
-void smile_fee_ctrl_init(void);
+void smile_fee_ctrl_init(struct smile_fee_mirror *fee_mirror);
 
 
 #endif /* _SMILE_FEE_CTRL_H_ */

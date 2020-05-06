@@ -549,7 +549,7 @@ int main(void)
 #endif
 
 	/* initialise the libraries */
-	smile_fee_ctrl_init();
+	smile_fee_ctrl_init(NULL);
 	smile_fee_rmap_init(GRSPW2_DEFAULT_MTU, rmap_tx, rmap_rx);
 
 
