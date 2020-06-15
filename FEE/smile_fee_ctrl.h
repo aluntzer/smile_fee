@@ -31,41 +31,41 @@ struct smile_fee_mirror {
 	uint32_t cfg_reg_3;
 	uint32_t cfg_reg_4;
 	uint32_t cfg_reg_5;
-	uint32_t cfg_reg_6;
-	uint32_t cfg_reg_7;
-	uint32_t cfg_reg_8;
-	uint32_t cfg_reg_9;
-	uint32_t cfg_reg_10;
-	uint32_t cfg_reg_11;
-	uint32_t cfg_reg_12;
-	uint32_t cfg_reg_13;
-	uint32_t cfg_reg_14;
-	uint32_t cfg_reg_15;
-	uint32_t cfg_reg_16;
-	uint32_t cfg_reg_17;
+	uint32_t cfg_reg_6;	/* unused */
+	uint32_t cfg_reg_7;     /* unused */
+	uint32_t cfg_reg_8;     /* unused */
+	uint32_t cfg_reg_9;     /* unused */
+	uint32_t cfg_reg_10;    /* unused */
+	uint32_t cfg_reg_11;    /* unused */
+	uint32_t cfg_reg_12;    /* unused */
+	uint32_t cfg_reg_13;    /* unused */
+	uint32_t cfg_reg_14;    /* unused */
+	uint32_t cfg_reg_15;    /* unused */
+	uint32_t cfg_reg_16;    /* unused */
+	uint32_t cfg_reg_17;    /* unused */
 	uint32_t cfg_reg_18;
 	uint32_t cfg_reg_19;
 	uint32_t cfg_reg_20;
 	uint32_t cfg_reg_21;
 	uint32_t cfg_reg_22;
-	uint32_t cfg_reg_23;
+	uint32_t cfg_reg_23;	/* reserved */
 	uint32_t cfg_reg_24;
 
 	/* FEE  RO registers (SMILE-MSSL-PL-Register_map_v0.10_Draft) */
 
-	uint32_t unused[1696];	/* TODO */
+	uint32_t unused[423];
 
-	uint32_t hk_reg_0;
-	uint32_t hk_reg_1;
-	uint32_t hk_reg_2;
+	uint32_t hk_reg_0;	/* reserved */
+	uint32_t hk_reg_1;	/* reserved */
+	uint32_t hk_reg_2;	/* reserved */
 	uint32_t hk_reg_3;
 	uint32_t hk_reg_4;
 	uint32_t hk_reg_5;
 	uint32_t hk_reg_6;
 	uint32_t hk_reg_7;
-	uint32_t hk_reg_8;
-	uint32_t hk_reg_9;
-	uint32_t hk_reg_10;
+	uint32_t hk_reg_8;	/* reserved */
+	uint32_t hk_reg_9;	/* reserved */
+	uint32_t hk_reg_10;	/* reserved */
 	uint32_t hk_reg_11;
 	uint32_t hk_reg_12;
 	uint32_t hk_reg_13;
@@ -79,9 +79,9 @@ struct smile_fee_mirror {
 	uint32_t hk_reg_21;
 	uint32_t hk_reg_22;
 	uint32_t hk_reg_23;
-	uint32_t hk_reg_24;
-	uint32_t hk_reg_25;
-	uint32_t hk_reg_26;
+	uint32_t hk_reg_24;	/* reserved */
+	uint32_t hk_reg_25;	/* reserved */
+	uint32_t hk_reg_26;	/* reserved */
 	uint32_t hk_reg_27;
 	uint32_t hk_reg_28;
 	uint32_t hk_reg_29;
@@ -117,6 +117,9 @@ int smile_fee_sync_cfg_reg_20(enum sync_direction dir);
 int smile_fee_sync_cfg_reg_21(enum sync_direction dir);
 int smile_fee_sync_cfg_reg_22(enum sync_direction dir);
 int smile_fee_sync_cfg_reg_24(enum sync_direction dir);
+
+int smile_fee_sync_hk_regs(void);
+
 
 /* values contained in registers */
 int smile_fee_sync_vstart(enum sync_direction dir);
@@ -235,6 +238,70 @@ void smile_fee_set_clear_error_flag(uint32_t mode);
 void smile_fee_set_ccd1_single_pixel_treshold(uint16_t threshold);
 void smile_fee_set_ccd2_single_pixel_treshold(uint16_t threshold);
 void smile_fee_set_execute_op(uint32_t mode);
+
+
+/* read SMILE_FEE housekeeping register mirror */
+uint16_t smile_fee_get_hk_ccd1_ts(void);
+uint16_t smile_fee_get_hk_ccd2_ts(void);
+uint16_t smile_fee_get_hk_ccd3_ts(void);
+uint16_t smile_fee_get_hk_ccd4_ts(void);
+uint16_t smile_fee_get_hk_prt1(void);
+uint16_t smile_fee_get_hk_prt2(void);
+uint16_t smile_fee_get_hk_prt3(void);
+uint16_t smile_fee_get_hk_prt4(void);
+uint16_t smile_fee_get_hk_prt5(void);
+uint16_t smile_fee_get_hk_zero_diff_amp(void);
+uint16_t smile_fee_get_hk_ccd3_vod_mon(void);
+uint16_t smile_fee_get_hk_ccd3_vog_mon(void);
+uint16_t smile_fee_get_hk_ccd3_vrd_mon_e(void);
+uint16_t smile_fee_get_hk_ccd4_vod_mon(void);
+uint16_t smile_fee_get_hk_ccd4_vog_mon(void);
+uint16_t smile_fee_get_hk_ccd4_vrd_mon_e(void);
+uint16_t smile_fee_get_hk_vccd(void);
+uint16_t smile_fee_get_hk_vrclk_mon(void);
+uint16_t smile_fee_get_hk_viclk(void);
+uint16_t smile_fee_get_hk_vrclk_low(void);
+uint16_t smile_fee_get_hk_5vb_pos_mon(void);
+uint16_t smile_fee_get_hk_5vb_neg_mon(void);
+uint16_t smile_fee_get_hk_3v3b_mon(void);
+uint16_t smile_fee_get_hk_2v5a_mon(void);
+uint16_t smile_fee_get_hk_3v3d_mon(void);
+uint16_t smile_fee_get_hk_2v5d_mon(void);
+uint16_t smile_fee_get_hk_1v5d_mon(void);
+uint16_t smile_fee_get_hk_5vref_mon(void);
+uint16_t smile_fee_get_hk_vccd_pos_raw(void);
+uint16_t smile_fee_get_hk_vclk_pos_raw(void);
+uint16_t smile_fee_get_hk_van1_pos_raw(void);
+uint16_t smile_fee_get_hk_van3_neg_mon(void);
+uint16_t smile_fee_get_hk_van2_pos_raw(void);
+uint16_t smile_fee_get_hk_vdig_raw(void);
+uint16_t smile_fee_get_hk_vdig_raw_2(void);
+uint16_t smile_fee_get_hk_viclk_low(void);
+uint16_t smile_fee_get_hk_ccd3_vrd_mon_f(void);
+uint16_t smile_fee_get_hk_ccd3_vdd_mon(void);
+uint16_t smile_fee_get_hk_ccd3_vgd_mon(void);
+uint16_t smile_fee_get_hk_ccd4_vrd_mon_f(void);
+uint16_t smile_fee_get_hk_ccd4_vdd_mon(void);
+uint16_t smile_fee_get_hk_ccd4_vgd_mon(void);
+uint16_t smile_fee_get_hk_ig_hi_mon(void);
+uint16_t smile_fee_get_hk_ig_lo_mon(void);
+uint16_t smile_fee_get_hk_tense_a(void);
+uint16_t smile_fee_get_hk_tense_b(void);
+uint8_t smile_fee_get_hk_timecode_from_spw(void);
+uint8_t smile_fee_get_hk_rmap_target_status(void);
+uint32_t smile_fee_get_hk_rmap_target_indicate(void);
+uint32_t smile_fee_get_hk_spw_link_escape_error(void);
+uint32_t smile_fee_get_hk_spw_link_credit_error(void);
+uint32_t smile_fee_get_hk_spw_link_parity_error(void);
+uint32_t smile_fee_get_hk_spw_link_disconnect(void);
+uint32_t smile_fee_get_hk_spw_link_running(void);
+uint32_t smile_fee_get_hk_frame_counter(void);
+uint8_t smile_fee_get_hk_fpga_op_mode(void);
+uint32_t smile_fee_get_hk_error_flag_spw_link_escape_error(void);
+uint32_t smile_fee_get_hk_error_flag_spw_link_credit_error(void);
+uint32_t smile_fee_get_hk_error_flag_spw_link_parity_error(void);
+
+
 
 
 

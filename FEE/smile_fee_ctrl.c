@@ -1085,6 +1085,708 @@ void smile_fee_set_execute_op(uint32_t mode)
 
 
 /**
+ * @brief get CCD1_TS HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ccd1_ts(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_3 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get CCD2_TS HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ccd2_ts(void)
+{
+	return (uint16_t) smile_fee->hk_reg_3 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get CCD3_TS HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ccd3_ts(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_4 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get CCD4_TS HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ccd4_ts(void)
+{
+	return (uint16_t) smile_fee->hk_reg_4 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get PRT1_TS HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_prt1(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_5 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get PRT2_TS HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_prt2(void)
+{
+	return (uint16_t) smile_fee->hk_reg_5 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get PRT3_TS HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_prt3(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_6 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get PRT4_TS HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_prt4(void)
+{
+	return (uint16_t) smile_fee->hk_reg_6 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get PRT5_TS HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_prt5(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_7 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get ZERO_DIFF_AMP HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_zero_diff_amp(void)
+{
+	return (uint16_t) smile_fee->hk_reg_7 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get CCD3_VOD_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ccd3_vod_mon(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_11 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get CCD3_VOG_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ccd3_vog_mon(void)
+{
+	return (uint16_t) smile_fee->hk_reg_11 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get CCD3_VRD_MON_E HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ccd3_vrd_mon_e(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_12 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get CCD4_VOD_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ccd4_vod_mon(void)
+{
+	return (uint16_t) smile_fee->hk_reg_12 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get CCD4_VOG_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ccd4_vog_mon(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_13 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get CCD4_VRD_MON_e HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ccd4_vrd_mon_e(void)
+{
+	return (uint16_t) smile_fee->hk_reg_13 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get VCCD HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_vccd(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_14 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get VRCLK_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_vrclk_mon(void)
+{
+	return (uint16_t) smile_fee->hk_reg_14 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get VICLK HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_viclk(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_15 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get VRCLK_LOW HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_vrclk_low(void)
+{
+	return (uint16_t) smile_fee->hk_reg_15 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get 5VB_POS_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_5vb_pos_mon(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_16 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get 5VB_NEG_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_5vb_neg_mon(void)
+{
+	return (uint16_t) smile_fee->hk_reg_16 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get 3V3B_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_3v3b_mon(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_17 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get 2V5A_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_2v5a_mon(void)
+{
+	return (uint16_t) smile_fee->hk_reg_17 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get 3V3D_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_3v3d_mon(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_18 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get 2V5D_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_2v5d_mon(void)
+{
+	return (uint16_t) smile_fee->hk_reg_18 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get 1V5D_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_1v5d_mon(void)
+{
+	return (uint16_t) smile_fee->hk_reg_19 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get 5VREF_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_5vref_mon(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_19 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get VCCD_POS_RAW HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_vccd_pos_raw(void)
+{
+	return (uint16_t) smile_fee->hk_reg_20 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get VCLK_POS_RAW HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_vclk_pos_raw(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_20 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get VAN1_POS_RAW HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_van1_pos_raw(void)
+{
+	return (uint16_t) smile_fee->hk_reg_21 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get VAN3_NEG_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_van3_neg_mon(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_21 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get VAN2_POS_RAW HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_van2_pos_raw(void)
+{
+	return (uint16_t) smile_fee->hk_reg_22 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get VDIG_RAW HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_vdig_raw(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_22 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get VDIG_RAW_2 HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_vdig_raw_2(void)
+{
+	return (uint16_t) smile_fee->hk_reg_23 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get VDIG_RAW HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_viclk_low(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_23 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get CCD3_VRD_MON_F HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ccd3_vrd_mon_f(void)
+{
+	return (uint16_t) smile_fee->hk_reg_27 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get CCD3_VDD_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ccd3_vdd_mon(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_27 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get CCD3_VGD_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ccd3_vgd_mon(void)
+{
+	return (uint16_t) smile_fee->hk_reg_28 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get CCD4_VRD_MON_F HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ccd4_vrd_mon_f(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_28 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get CCD4_VDD_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ccd4_vdd_mon(void)
+{
+	return (uint16_t) smile_fee->hk_reg_29 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get CCD4_VGD_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ccd4_vgd_mon(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_29 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get IG_HI_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ig_hi_mon(void)
+{
+	return (uint16_t) smile_fee->hk_reg_30 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get IG_LO_MON HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_ig_lo_mon(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_30 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get TENSE_A HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_tense_a(void)
+{
+	return (uint16_t) smile_fee->hk_reg_31 & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get TENSE_B HK value
+ *
+ * @note no description available in register map document
+ */
+
+uint16_t smile_fee_get_hk_tense_b(void)
+{
+	return (uint16_t) (smile_fee->hk_reg_30 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get SpW Time Code HK value
+ */
+
+uint8_t smile_fee_get_hk_timecode_from_spw(void)
+{
+	return (uint8_t) (smile_fee->hk_reg_32 >> 16) & 0xFFUL;
+}
+
+
+/**
+ * @brief get RMAP target status HK value
+ */
+
+uint8_t smile_fee_get_hk_rmap_target_status(void)
+{
+	return (uint8_t) (smile_fee->hk_reg_32 >> 8) & 0xFFUL;
+}
+
+
+/**
+ * @brief get RMAP target status HK value
+ *
+ * @returns 1 if set, 0 otherwise
+ */
+
+uint32_t smile_fee_get_hk_rmap_target_indicate(void)
+{
+	return (smile_fee->hk_reg_32 >> 5) & 0x1UL;
+}
+
+
+/**
+ * @brief get SpW link escape error HK value
+ *
+ * @returns 1 if set, 0 otherwise
+ */
+
+uint32_t smile_fee_get_hk_spw_link_escape_error(void)
+{
+	return (smile_fee->hk_reg_32 >> 4) & 0x1UL;
+}
+
+
+/**
+ * @brief get SpW link credit error HK value
+ *
+ * @returns 1 if set, 0 otherwise
+ */
+
+uint32_t smile_fee_get_hk_spw_link_credit_error(void)
+{
+	return (smile_fee->hk_reg_32 >> 3) & 0x1UL;
+}
+
+
+/**
+ * @brief get SpW link parity error HK value
+ *
+ * @returns 1 if set, 0 otherwise
+ */
+
+uint32_t smile_fee_get_hk_spw_link_parity_error(void)
+{
+	return (smile_fee->hk_reg_32 >> 2) & 0x1UL;
+}
+
+
+/**
+ * @brief get SpW link disconnect HK value
+ *
+ * @returns 1 if set, 0 otherwise
+ */
+
+uint32_t smile_fee_get_hk_spw_link_disconnect(void)
+{
+	return (smile_fee->hk_reg_32 >> 1) & 0x1UL;
+}
+
+
+/**
+ * @brief get SpW link running HK value
+ *
+ * @returns 1 if set, 0 otherwise
+ */
+
+uint32_t smile_fee_get_hk_spw_link_running(void)
+{
+	return smile_fee->hk_reg_32 & 0x1UL;
+}
+
+
+/**
+ * @brief get frame counter HK value
+ *
+ * @note incrementing after each sync25 (description from register map document)
+ */
+
+uint32_t smile_fee_get_hk_frame_counter(void)
+{
+	return (smile_fee->hk_reg_33 >> 16) & 0xFFFFUL;
+}
+
+
+/**
+ * @brief get FPGA op mode HK value
+ */
+
+uint8_t smile_fee_get_hk_fpga_op_mode(void)
+{
+	return (uint8_t) smile_fee->hk_reg_33 & 0x7FUL;
+}
+
+
+/**
+ * @brief get error flag SpW link escape error HK value
+ *
+ * @returns 1 if set, 0 otherwise
+ */
+
+uint32_t smile_fee_get_hk_error_flag_spw_link_escape_error(void)
+{
+	return smile_fee->hk_reg_34 & 0x1UL;
+}
+
+
+/**
+ * @brief get error flag SpW link credit error HK value
+ *
+ * @returns 1 if set, 0 otherwise
+ */
+
+uint32_t smile_fee_get_hk_error_flag_spw_link_credit_error(void)
+{
+	return (smile_fee->hk_reg_34 >> 1) & 0x1UL;
+}
+
+
+/**
+ * @brief get error flag SpW link parity error HK value
+ *
+ * @returns 1 if set, 0 otherwise
+ */
+
+uint32_t smile_fee_get_hk_error_flag_spw_link_parity_error(void)
+{
+	return (smile_fee->hk_reg_34 >> 2) & 0x1UL;
+}
+
+
+/**
  * @brief sync configuration register 0
  *
  * @param dir the syncronisation direction
@@ -1858,6 +2560,48 @@ int smile_fee_sync_execute_op(enum sync_direction dir)
 }
 
 
+/**
+ * @brief sync ALL HK registers
+ *
+ * @returns 0 on success, otherwise error occured in at least one transaction
+ *
+ * @note HK is read only, so this only syncs FEE->DPU
+ */
+
+int smile_fee_sync_hk_regs(void)
+{
+	int err = 0;
+
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_3, &smile_fee->hk_reg_3, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_4, &smile_fee->hk_reg_4, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_5, &smile_fee->hk_reg_5, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_6, &smile_fee->hk_reg_6, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_7, &smile_fee->hk_reg_7, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_11, &smile_fee->hk_reg_11, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_12, &smile_fee->hk_reg_12, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_13, &smile_fee->hk_reg_13, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_14, &smile_fee->hk_reg_14, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_15, &smile_fee->hk_reg_15, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_16, &smile_fee->hk_reg_16, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_17, &smile_fee->hk_reg_17, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_18, &smile_fee->hk_reg_18, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_19, &smile_fee->hk_reg_19, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_20, &smile_fee->hk_reg_20, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_21, &smile_fee->hk_reg_21, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_22, &smile_fee->hk_reg_22, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_23, &smile_fee->hk_reg_23, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_27, &smile_fee->hk_reg_27, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_28, &smile_fee->hk_reg_28, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_29, &smile_fee->hk_reg_29, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_30, &smile_fee->hk_reg_30, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_31, &smile_fee->hk_reg_31, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_32, &smile_fee->hk_reg_32, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_33, &smile_fee->hk_reg_33, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_34, &smile_fee->hk_reg_34, 0);
+	err |= smile_fee_sync(fee_read_cmd_hk_reg_35, &smile_fee->hk_reg_35, 0);
+
+	return err;
+}
 
 
 
