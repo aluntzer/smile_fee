@@ -48,7 +48,7 @@
  *	    development process. Make sure to inspect the latest register
  *	    map for changes.
  */
-
+#define FEE_SIM 1	/* XXX */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1096,6 +1096,19 @@ uint16_t smile_fee_get_hk_ccd1_ts(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set CCD1_TS HK value
+ */
+
+void smile_fee_set_hk_ccd1_ts(uint16_t ccd1_ts)
+{
+	smile_fee->hk_reg_3 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_3 |= (0xFFFFUL & ((uint32_t) ccd1_ts)) << 16;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get CCD2_TS HK value
  *
@@ -1106,6 +1119,19 @@ uint16_t smile_fee_get_hk_ccd2_ts(void)
 {
 	return (uint16_t) smile_fee->hk_reg_3 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set CCD2_TS HK value
+ */
+
+void smile_fee_set_hk_ccd2_ts(uint16_t ccd2_ts)
+{
+	smile_fee->hk_reg_3 &= ~0xFFFFUL;
+	smile_fee->hk_reg_3 |= 0xFFFFUL & (uint32_t) ccd2_ts;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1120,6 +1146,19 @@ uint16_t smile_fee_get_hk_ccd3_ts(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set CCD3_TS HK value
+ */
+
+void smile_fee_set_hk_ccd3_ts(uint16_t ccd3_ts)
+{
+	smile_fee->hk_reg_4 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_4 |= (0xFFFFUL & ((uint32_t) ccd3_ts)) << 16;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get CCD4_TS HK value
  *
@@ -1132,8 +1171,21 @@ uint16_t smile_fee_get_hk_ccd4_ts(void)
 }
 
 
+#ifdef FEE_SIM
 /**
- * @brief get PRT1_TS HK value
+ * @brief set CCD4_TS HK value
+ */
+
+void smile_fee_set_hk_ccd4_ts(uint16_t ccd4_ts)
+{
+	smile_fee->hk_reg_4 &= ~0xFFFFUL;
+	smile_fee->hk_reg_4 |= 0xFFFFUL & (uint32_t) ccd4_ts;
+}
+#endif /* FEE_SIM */
+
+
+/**
+ * @brief get PRT1 HK value
  *
  * @note no description available in register map document
  */
@@ -1144,8 +1196,21 @@ uint16_t smile_fee_get_hk_prt1(void)
 }
 
 
+#ifdef FEE_SIM
 /**
- * @brief get PRT2_TS HK value
+ * @brief set PRT1 HK value
+ */
+
+void smile_fee_set_hk_prt1(uint16_t prt1)
+{
+	smile_fee->hk_reg_5 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_5 |= (0xFFFFUL & ((uint32_t) prt1)) << 16;
+}
+#endif /* FEE_SIM */
+
+
+/**
+ * @brief get PRT2 HK value
  *
  * @note no description available in register map document
  */
@@ -1156,8 +1221,21 @@ uint16_t smile_fee_get_hk_prt2(void)
 }
 
 
+#ifdef FEE_SIM
 /**
- * @brief get PRT3_TS HK value
+ * @brief set PRT2 HK value
+ */
+
+void smile_fee_set_hk_prt2(uint16_t prt2)
+{
+	smile_fee->hk_reg_5 &= ~0xFFFFUL;
+	smile_fee->hk_reg_5 |= 0xFFFFUL & (uint32_t) prt2;
+}
+#endif /* FEE_SIM */
+
+
+/**
+ * @brief get PRT3 HK value
  *
  * @note no description available in register map document
  */
@@ -1168,8 +1246,21 @@ uint16_t smile_fee_get_hk_prt3(void)
 }
 
 
+#ifdef FEE_SIM
 /**
- * @brief get PRT4_TS HK value
+ * @brief set PRT3 HK value
+ */
+
+void smile_fee_set_hk_prt3(uint16_t prt3)
+{
+	smile_fee->hk_reg_6 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_6 |= (0xFFFFUL & ((uint32_t) prt3)) << 16;
+}
+#endif /* FEE_SIM */
+
+
+/**
+ * @brief get PRT4 HK value
  *
  * @note no description available in register map document
  */
@@ -1178,6 +1269,19 @@ uint16_t smile_fee_get_hk_prt4(void)
 {
 	return (uint16_t) smile_fee->hk_reg_6 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set PRT4 HK value
+ */
+
+void smile_fee_set_hk_prt4(uint16_t prt4)
+{
+	smile_fee->hk_reg_6 &= ~0xFFFFUL;
+	smile_fee->hk_reg_6 |= 0xFFFFUL & (uint32_t) prt4;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1192,6 +1296,19 @@ uint16_t smile_fee_get_hk_prt5(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set PRT5 HK value
+ */
+
+void smile_fee_set_hk_prt5(uint16_t prt5)
+{
+	smile_fee->hk_reg_7 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_7 |= (0xFFFFUL & ((uint32_t) prt5)) << 16;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get ZERO_DIFF_AMP HK value
  *
@@ -1202,6 +1319,19 @@ uint16_t smile_fee_get_hk_zero_diff_amp(void)
 {
 	return (uint16_t) smile_fee->hk_reg_7 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set ZERO_DIFF_AMP HK value
+ */
+
+void smile_fee_set_hk_zero_diff_amp(uint16_t zero_diff_amp)
+{
+	smile_fee->hk_reg_7 &= ~0xFFFFUL;
+	smile_fee->hk_reg_7 |= 0xFFFFUL & (uint32_t) zero_diff_amp;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1216,6 +1346,19 @@ uint16_t smile_fee_get_hk_ccd3_vod_mon(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set CCD3_VOD_MON HK value
+ */
+
+void smile_fee_set_hk_ccd3_vod_mon(uint16_t ccd3_vod_mon)
+{
+	smile_fee->hk_reg_11 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_11 |= (0xFFFFUL & ((uint32_t) ccd3_vod_mon)) << 16;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get CCD3_VOG_MON HK value
  *
@@ -1226,6 +1369,19 @@ uint16_t smile_fee_get_hk_ccd3_vog_mon(void)
 {
 	return (uint16_t) smile_fee->hk_reg_11 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set CCD3_VOG_MON HK value
+ */
+
+void smile_fee_set_hk_ccd3_vog_mon(uint16_t ccd3_vog_mon)
+{
+	smile_fee->hk_reg_11 &= ~0xFFFFUL;
+	smile_fee->hk_reg_11 |= 0xFFFFUL & (uint32_t) ccd3_vog_mon;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1240,6 +1396,19 @@ uint16_t smile_fee_get_hk_ccd3_vrd_mon_e(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set CCD3_VRD_MON_E HK value
+ */
+
+void smile_fee_set_hk_ccd3_vrd_mon_e(uint16_t ccd3_vrd_mon_e)
+{
+	smile_fee->hk_reg_12 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_12 |= (0xFFFFUL & ((uint32_t) ccd3_vrd_mon_e)) << 16;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get CCD4_VOD_MON HK value
  *
@@ -1250,6 +1419,19 @@ uint16_t smile_fee_get_hk_ccd4_vod_mon(void)
 {
 	return (uint16_t) smile_fee->hk_reg_12 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set CCD4_VOD_MON HK value
+ */
+
+void smile_fee_set_hk_ccd4_vod_mon(uint16_t ccd4_vod_mon)
+{
+	smile_fee->hk_reg_12 &= ~0xFFFFUL;
+	smile_fee->hk_reg_12 |= 0xFFFFUL & (uint32_t) ccd4_vod_mon;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1264,8 +1446,21 @@ uint16_t smile_fee_get_hk_ccd4_vog_mon(void)
 }
 
 
+#ifdef FEE_SIM
 /**
- * @brief get CCD4_VRD_MON_e HK value
+ * @brief set CCD4_VOG_MON HK value
+ */
+
+void smile_fee_set_hk_ccd4_vog_mon(uint16_t ccd4_vog_mon)
+{
+	smile_fee->hk_reg_13 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_13 |= (0xFFFFUL & ((uint32_t) ccd4_vog_mon)) << 16;
+}
+#endif /* FEE_SIM */
+
+
+/**
+ * @brief get CCD4_VRD_MON_E HK value
  *
  * @note no description available in register map document
  */
@@ -1274,6 +1469,19 @@ uint16_t smile_fee_get_hk_ccd4_vrd_mon_e(void)
 {
 	return (uint16_t) smile_fee->hk_reg_13 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set CCD4_VRD_MON_E HK value
+ */
+
+void smile_fee_set_hk_ccd4_vrd_mon_e(uint16_t ccd4_vrd_mon_e)
+{
+	smile_fee->hk_reg_13 &= ~0xFFFFUL;
+	smile_fee->hk_reg_13 |= 0xFFFFUL & (uint32_t) ccd4_vrd_mon_e;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1288,6 +1496,19 @@ uint16_t smile_fee_get_hk_vccd(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set VCCD HK value
+ */
+
+void smile_fee_set_hk_vccd(uint16_t vccd)
+{
+	smile_fee->hk_reg_14 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_14 |= (0xFFFFUL & ((uint32_t) vccd)) << 16;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get VRCLK_MON HK value
  *
@@ -1298,6 +1519,19 @@ uint16_t smile_fee_get_hk_vrclk_mon(void)
 {
 	return (uint16_t) smile_fee->hk_reg_14 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set VRCLK_MON HK value
+ */
+
+void smile_fee_set_hk_vrclk_mon(uint16_t vrclk_mon)
+{
+	smile_fee->hk_reg_14 &= ~0xFFFFUL;
+	smile_fee->hk_reg_14 |= 0xFFFFUL & (uint32_t) vrclk_mon;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1312,6 +1546,19 @@ uint16_t smile_fee_get_hk_viclk(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set VICLK HK value
+ */
+
+void smile_fee_set_hk_viclk(uint16_t viclk)
+{
+	smile_fee->hk_reg_15 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_15 |= (0xFFFFUL & ((uint32_t) viclk)) << 16;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get VRCLK_LOW HK value
  *
@@ -1322,6 +1569,20 @@ uint16_t smile_fee_get_hk_vrclk_low(void)
 {
 	return (uint16_t) smile_fee->hk_reg_15 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set VRCLK_LOW HK value
+ */
+
+void smile_fee_set_hk_vrclk_low(uint16_t vrclk_low)
+{
+	smile_fee->hk_reg_15 &= ~0xFFFFUL;
+	smile_fee->hk_reg_15 |= 0xFFFFUL & (uint32_t) vrclk_low;
+}
+#endif /* FEE_SIM */
+
 
 
 /**
@@ -1336,6 +1597,19 @@ uint16_t smile_fee_get_hk_5vb_pos_mon(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set 5VB_POS_MON HK value
+ */
+
+void smile_fee_set_hk_5vb_pos_mon(uint16_t _5vb_pos_mon)
+{
+	smile_fee->hk_reg_16 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_16 |= (0xFFFFUL & ((uint32_t) _5vb_pos_mon)) << 16;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get 5VB_NEG_MON HK value
  *
@@ -1346,6 +1620,19 @@ uint16_t smile_fee_get_hk_5vb_neg_mon(void)
 {
 	return (uint16_t) smile_fee->hk_reg_16 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set 5VB_NEG_MON HK value
+ */
+
+void smile_fee_set_hk_5vb_neg_mon(uint16_t _5vb_neg_mon)
+{
+	smile_fee->hk_reg_16 &= ~0xFFFFUL;
+	smile_fee->hk_reg_16 |= 0xFFFFUL & (uint32_t) _5vb_neg_mon;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1360,6 +1647,19 @@ uint16_t smile_fee_get_hk_3v3b_mon(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set 3V3B_MON HK value
+ */
+
+void smile_fee_set_hk_3v3b_mon(uint16_t _3v3b_mon)
+{
+	smile_fee->hk_reg_17 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_17 |= (0xFFFFUL & ((uint32_t) _3v3b_mon)) << 16;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get 2V5A_MON HK value
  *
@@ -1370,6 +1670,19 @@ uint16_t smile_fee_get_hk_2v5a_mon(void)
 {
 	return (uint16_t) smile_fee->hk_reg_17 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set 2V5A_MON HK value
+ */
+
+void smile_fee_set_hk_2v5a_mon(uint16_t _2v5a_mon)
+{
+	smile_fee->hk_reg_17 &= ~0xFFFFUL;
+	smile_fee->hk_reg_17 |= 0xFFFFUL & (uint32_t) _2v5a_mon;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1384,6 +1697,19 @@ uint16_t smile_fee_get_hk_3v3d_mon(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set 3V3D_MON HK value
+ */
+
+void smile_fee_set_hk_3v3d_mon(uint16_t _3v3d_mon)
+{
+	smile_fee->hk_reg_18 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_18 |= (0xFFFFUL & ((uint32_t) _3v3d_mon)) << 16;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get 2V5D_MON HK value
  *
@@ -1396,6 +1722,19 @@ uint16_t smile_fee_get_hk_2v5d_mon(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set 2V5D_MON HK value
+ */
+
+void smile_fee_set_hk_2v5d_mon(uint16_t _2v5d_mon)
+{
+	smile_fee->hk_reg_18 &= ~0xFFFFUL;
+	smile_fee->hk_reg_18 |= 0xFFFFUL & (uint32_t) _2v5d_mon;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get 1V5D_MON HK value
  *
@@ -1404,8 +1743,21 @@ uint16_t smile_fee_get_hk_2v5d_mon(void)
 
 uint16_t smile_fee_get_hk_1v5d_mon(void)
 {
-	return (uint16_t) smile_fee->hk_reg_19 & 0xFFFFUL;
+	return (uint16_t) (smile_fee->hk_reg_19 >> 16) & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set 1V5D_MON HK value
+ */
+
+void smile_fee_set_hk_1v5d_mon(uint16_t _1v5d_mon)
+{
+	smile_fee->hk_reg_19 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_19 |= (0xFFFFUL & ((uint32_t) _1v5d_mon)) << 16;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1416,8 +1768,21 @@ uint16_t smile_fee_get_hk_1v5d_mon(void)
 
 uint16_t smile_fee_get_hk_5vref_mon(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_19 >> 16) & 0xFFFFUL;
+	return (uint16_t) smile_fee->hk_reg_19 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set 5VREF_MON HK value
+ */
+
+void smile_fee_set_hk_5vref_mon(uint16_t _5vref_mon)
+{
+	smile_fee->hk_reg_19 &= ~0xFFFFUL;
+	smile_fee->hk_reg_19 |= 0xFFFFUL & (uint32_t) _5vref_mon;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1428,8 +1793,21 @@ uint16_t smile_fee_get_hk_5vref_mon(void)
 
 uint16_t smile_fee_get_hk_vccd_pos_raw(void)
 {
-	return (uint16_t) smile_fee->hk_reg_20 & 0xFFFFUL;
+	return (uint16_t) (smile_fee->hk_reg_20 >> 16) & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set VCCD_POS_RAW HK value
+ */
+
+void smile_fee_set_hk_vccd_pos_raw(uint16_t vccd_pos_raw)
+{
+	smile_fee->hk_reg_20 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_20 |= (0xFFFFUL & ((uint32_t) vccd_pos_raw)) << 16;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1440,8 +1818,21 @@ uint16_t smile_fee_get_hk_vccd_pos_raw(void)
 
 uint16_t smile_fee_get_hk_vclk_pos_raw(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_20 >> 16) & 0xFFFFUL;
+	return (uint16_t) smile_fee->hk_reg_20 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set VCLK_POS_RAW HK value
+ */
+
+void smile_fee_set_hk_vclk_pos_raw(uint16_t vclk_pos_raw)
+{
+	smile_fee->hk_reg_20 &= ~0xFFFFUL;
+	smile_fee->hk_reg_20 |= 0xFFFFUL & (uint32_t) vclk_pos_raw;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1452,8 +1843,21 @@ uint16_t smile_fee_get_hk_vclk_pos_raw(void)
 
 uint16_t smile_fee_get_hk_van1_pos_raw(void)
 {
-	return (uint16_t) smile_fee->hk_reg_21 & 0xFFFFUL;
+	return (uint16_t) (smile_fee->hk_reg_21 >> 16) & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set VAN1_POS_RAW HK value
+ */
+
+void smile_fee_set_hk_van1_pos_raw(uint16_t van1_pos_raw)
+{
+	smile_fee->hk_reg_21 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_21 |= (0xFFFFUL & ((uint32_t) van1_pos_raw)) << 16;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1464,8 +1868,22 @@ uint16_t smile_fee_get_hk_van1_pos_raw(void)
 
 uint16_t smile_fee_get_hk_van3_neg_mon(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_21 >> 16) & 0xFFFFUL;
+	return (uint16_t) smile_fee->hk_reg_21 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set VAN3_NEG_MON HK value
+ */
+
+void smile_fee_set_hk_van3_neg_raw(uint16_t van3_neg_raw)
+{
+	smile_fee->hk_reg_21 &= ~0xFFFFUL;
+	smile_fee->hk_reg_21 |= 0xFFFFUL & (uint32_t) van3_neg_raw;
+}
+#endif /* FEE_SIM */
+
 
 
 /**
@@ -1476,8 +1894,21 @@ uint16_t smile_fee_get_hk_van3_neg_mon(void)
 
 uint16_t smile_fee_get_hk_van2_pos_raw(void)
 {
-	return (uint16_t) smile_fee->hk_reg_22 & 0xFFFFUL;
+	return (uint16_t) (smile_fee->hk_reg_22 >> 16) & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set VAN2_POS_RAW HK value
+ */
+
+void smile_fee_set_hk_van2_pos_raw(uint16_t van2_pos_raw)
+{
+	smile_fee->hk_reg_22 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_22 |= (0xFFFFUL & ((uint32_t) van2_pos_raw)) << 16;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1488,9 +1919,21 @@ uint16_t smile_fee_get_hk_van2_pos_raw(void)
 
 uint16_t smile_fee_get_hk_vdig_raw(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_22 >> 16) & 0xFFFFUL;
+	return (uint16_t) smile_fee->hk_reg_22 & 0xFFFFUL;
 }
 
+
+#ifdef FEE_SIM
+/**
+ * @brief set VDIG_RAW HK value
+ */
+
+void smile_fee_set_hk_vdig_raw(uint16_t vdig_raw)
+{
+	smile_fee->hk_reg_22 &= ~0xFFFFUL;
+	smile_fee->hk_reg_22 |= 0xFFFFUL & (uint32_t) vdig_raw;
+}
+#endif /* FEE_SIM */
 
 /**
  * @brief get VDIG_RAW_2 HK value
@@ -1500,20 +1943,46 @@ uint16_t smile_fee_get_hk_vdig_raw(void)
 
 uint16_t smile_fee_get_hk_vdig_raw_2(void)
 {
-	return (uint16_t) smile_fee->hk_reg_23 & 0xFFFFUL;
+	return (uint16_t) (smile_fee->hk_reg_23 >> 16) & 0xFFFFUL;
 }
 
 
+#ifdef FEE_SIM
 /**
- * @brief get VDIG_RAW HK value
+ * @brief set VAN2_POS_RAW HK value
+ */
+
+void smile_fee_set_hk_vdig_raw_2(uint16_t vdig_raw_2)
+{
+	smile_fee->hk_reg_23 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_23 |= (0xFFFFUL & ((uint32_t) vdig_raw_2)) << 16;
+}
+#endif /* FEE_SIM */
+
+
+/**
+ * @brief get VICLK_RAW HK value
  *
  * @note no description available in register map document
  */
 
 uint16_t smile_fee_get_hk_viclk_low(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_23 >> 16) & 0xFFFFUL;
+	return (uint16_t) smile_fee->hk_reg_23 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set VDIG_RAW HK value
+ */
+
+void smile_fee_set_hk_viclk_low(uint16_t viclk_low)
+{
+	smile_fee->hk_reg_23 &= ~0xFFFFUL;
+	smile_fee->hk_reg_23 |= 0xFFFFUL & (uint32_t) viclk_low;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1524,8 +1993,21 @@ uint16_t smile_fee_get_hk_viclk_low(void)
 
 uint16_t smile_fee_get_hk_ccd3_vrd_mon_f(void)
 {
-	return (uint16_t) smile_fee->hk_reg_27 & 0xFFFFUL;
+	return (uint16_t) (smile_fee->hk_reg_27 >> 16) & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set CCD3_VRD_MON_F HK value
+ */
+
+void smile_fee_set_hk_ccd3_vrd_mon_f(uint16_t ccd3_vrd_mon_f)
+{
+	smile_fee->hk_reg_27 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_27 |= (0xFFFFUL & ((uint32_t) ccd3_vrd_mon_f)) << 16;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1536,8 +2018,21 @@ uint16_t smile_fee_get_hk_ccd3_vrd_mon_f(void)
 
 uint16_t smile_fee_get_hk_ccd3_vdd_mon(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_27 >> 16) & 0xFFFFUL;
+	return (uint16_t) smile_fee->hk_reg_27 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set CCD3_VDD_MON HK value
+ */
+
+void smile_fee_set_hk_ccd3_vdd_mon(uint16_t ccd3_vdd_mon)
+{
+	smile_fee->hk_reg_27 &= ~0xFFFFUL;
+	smile_fee->hk_reg_27 |= 0xFFFFUL & (uint32_t) ccd3_vdd_mon;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1548,8 +2043,21 @@ uint16_t smile_fee_get_hk_ccd3_vdd_mon(void)
 
 uint16_t smile_fee_get_hk_ccd3_vgd_mon(void)
 {
-	return (uint16_t) smile_fee->hk_reg_28 & 0xFFFFUL;
+	return (uint16_t) (smile_fee->hk_reg_28 >> 16) & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set CCD3_VGD_MON HK value
+ */
+
+void smile_fee_set_hk_ccd3_vgd_mon(uint16_t ccd3_vgd_mon)
+{
+	smile_fee->hk_reg_28 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_28 |= (0xFFFFUL & ((uint32_t) ccd3_vgd_mon)) << 16;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1560,8 +2068,21 @@ uint16_t smile_fee_get_hk_ccd3_vgd_mon(void)
 
 uint16_t smile_fee_get_hk_ccd4_vrd_mon_f(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_28 >> 16) & 0xFFFFUL;
+	return (uint16_t) smile_fee->hk_reg_28 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set CCD4_VRD_MON HK value
+ */
+
+void smile_fee_set_hk_ccd4_vrd_mon(uint16_t ccd4_vrd_mon)
+{
+	smile_fee->hk_reg_28 &= ~0xFFFFUL;
+	smile_fee->hk_reg_28 |= 0xFFFFUL & (uint32_t) ccd4_vrd_mon;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1572,8 +2093,21 @@ uint16_t smile_fee_get_hk_ccd4_vrd_mon_f(void)
 
 uint16_t smile_fee_get_hk_ccd4_vdd_mon(void)
 {
-	return (uint16_t) smile_fee->hk_reg_29 & 0xFFFFUL;
+	return (uint16_t) (smile_fee->hk_reg_29 >> 16) & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set CCD4_VDD_MON HK value
+ */
+
+void smile_fee_set_hk_ccd4_vdd_mon(uint16_t ccd4_vdd_mon)
+{
+	smile_fee->hk_reg_29 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_29 |= (0xFFFFUL & ((uint32_t) ccd4_vdd_mon)) << 16;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1584,8 +2118,21 @@ uint16_t smile_fee_get_hk_ccd4_vdd_mon(void)
 
 uint16_t smile_fee_get_hk_ccd4_vgd_mon(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_29 >> 16) & 0xFFFFUL;
+	return (uint16_t) smile_fee->hk_reg_29 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set CCD4_VGD_MON HK value
+ */
+
+void smile_fee_set_hk_ccd4_vgd_mon(uint16_t ccd4_vgd_mon)
+{
+	smile_fee->hk_reg_29 &= ~0xFFFFUL;
+	smile_fee->hk_reg_29 |= 0xFFFFUL & (uint32_t) ccd4_vgd_mon;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1596,8 +2143,21 @@ uint16_t smile_fee_get_hk_ccd4_vgd_mon(void)
 
 uint16_t smile_fee_get_hk_ig_hi_mon(void)
 {
-	return (uint16_t) smile_fee->hk_reg_30 & 0xFFFFUL;
+	return (uint16_t) (smile_fee->hk_reg_30 >> 16) & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set IG_HI_MON HK value
+ */
+
+void smile_fee_set_hk_ig_hi_mon(uint16_t ig_hi_mon)
+{
+	smile_fee->hk_reg_30 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_30 |= (0xFFFFUL & ((uint32_t) ig_hi_mon)) << 16;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1608,8 +2168,21 @@ uint16_t smile_fee_get_hk_ig_hi_mon(void)
 
 uint16_t smile_fee_get_hk_ig_lo_mon(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_30 >> 16) & 0xFFFFUL;
+	return (uint16_t) smile_fee->hk_reg_30 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set IG_LO_MON HK value
+ */
+
+void smile_fee_set_hk_ig_lo_mon(uint16_t ig_lo_mon)
+{
+	smile_fee->hk_reg_30 &= ~0xFFFFUL;
+	smile_fee->hk_reg_30 |= 0xFFFFUL & (uint32_t) ig_lo_mon;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1620,8 +2193,22 @@ uint16_t smile_fee_get_hk_ig_lo_mon(void)
 
 uint16_t smile_fee_get_hk_tense_a(void)
 {
-	return (uint16_t) smile_fee->hk_reg_31 & 0xFFFFUL;
+	return (uint16_t) (smile_fee->hk_reg_31 >> 16) & 0xFFFFUL;
+
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set TENSE_A HK value
+ */
+
+void smile_fee_set_hk_tense_a(uint16_t tense_a)
+{
+	smile_fee->hk_reg_31 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_31 |= (0xFFFFUL & ((uint32_t) tense_a)) << 16;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1632,8 +2219,21 @@ uint16_t smile_fee_get_hk_tense_a(void)
 
 uint16_t smile_fee_get_hk_tense_b(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_30 >> 16) & 0xFFFFUL;
+	return (uint16_t) smile_fee->hk_reg_31 & 0xFFFFUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set TENSE_B HK value
+ */
+
+void smile_fee_set_hk_tense_b(uint16_t tense_b)
+{
+	smile_fee->hk_reg_31 &= ~0xFFFFUL;
+	smile_fee->hk_reg_31 |= 0xFFFFUL & (uint32_t) tense_b;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1646,6 +2246,19 @@ uint8_t smile_fee_get_hk_timecode_from_spw(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set SpW Time Code HK value
+ */
+
+void smile_fee_set_hk_timecode_from_spw(uint8_t timecode_from_spw)
+{
+	smile_fee->hk_reg_32 &= ~(0xFFUL << 16);
+	smile_fee->hk_reg_32 |= (0xFFUL & ((uint32_t) timecode_from_spw)) << 16;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get RMAP target status HK value
  */
@@ -1656,8 +2269,21 @@ uint8_t smile_fee_get_hk_rmap_target_status(void)
 }
 
 
+#ifdef FEE_SIM
 /**
- * @brief get RMAP target status HK value
+ * @brief set RMAP target status HK value
+ */
+
+void smile_fee_set_hk_rmap_target_status(uint8_t rmap_target_status)
+{
+	smile_fee->hk_reg_32 &= ~(0xFFUL << 8);
+	smile_fee->hk_reg_32 |= (0xFFUL & ((uint32_t) rmap_target_status)) << 8;
+}
+#endif /* FEE_SIM */
+
+
+/**
+ * @brief get RMAP target indicate HK value
  *
  * @returns 1 if set, 0 otherwise
  */
@@ -1666,6 +2292,24 @@ uint32_t smile_fee_get_hk_rmap_target_indicate(void)
 {
 	return (smile_fee->hk_reg_32 >> 5) & 0x1UL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set RMAP target indicate HK value
+ *
+ * @param rmap_target_indicate either 0 or any bit set (== 1)
+ */
+
+void smile_fee_set_hk_rmap_target_indicate(uint32_t rmap_target_indicate)
+{
+	if (rmap_target_indicate)
+		rmap_target_indicate = 1;
+
+	smile_fee->hk_reg_32 &= ~(0x1UL << 5);
+	smile_fee->hk_reg_32 |= rmap_target_indicate << 5;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1680,6 +2324,24 @@ uint32_t smile_fee_get_hk_spw_link_escape_error(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set SpW link escape error HK value
+ *
+ * @param spw_link_escape_error either 0 or any bit set (== 1)
+ */
+
+void smile_fee_set_hk_spw_link_escape_error(uint32_t spw_link_escape_error)
+{
+	if (spw_link_escape_error)
+		spw_link_escape_error = 1;
+
+	smile_fee->hk_reg_32 &= ~(0x1UL << 4);
+	smile_fee->hk_reg_32 |= spw_link_escape_error << 4;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get SpW link credit error HK value
  *
@@ -1690,6 +2352,24 @@ uint32_t smile_fee_get_hk_spw_link_credit_error(void)
 {
 	return (smile_fee->hk_reg_32 >> 3) & 0x1UL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set SpW link credit error HK value
+ *
+ * @param spw_link_credit_error either 0 or any bit set (== 1)
+ */
+
+void smile_fee_set_hk_spw_link_credit_error(uint32_t spw_link_credit_error)
+{
+	if (spw_link_credit_error)
+		spw_link_credit_error = 1;
+
+	smile_fee->hk_reg_32 &= ~(0x1UL << 3);
+	smile_fee->hk_reg_32 |= spw_link_credit_error << 3;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1704,6 +2384,24 @@ uint32_t smile_fee_get_hk_spw_link_parity_error(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set SpW link parity error HK value
+ *
+ * @param spw_link_parity_error either 0 or any bit set (== 1)
+ */
+
+void smile_fee_set_hk_spw_link_parity_error(uint32_t spw_link_parity_error)
+{
+	if (spw_link_parity_error)
+		spw_link_parity_error = 1;
+
+	smile_fee->hk_reg_32 &= ~(0x1UL << 2);
+	smile_fee->hk_reg_32 |= spw_link_parity_error << 2;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get SpW link disconnect HK value
  *
@@ -1714,6 +2412,24 @@ uint32_t smile_fee_get_hk_spw_link_disconnect(void)
 {
 	return (smile_fee->hk_reg_32 >> 1) & 0x1UL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set SpW link disconnect error HK value
+ *
+ * @param spw_link_disconnect_error either 0 or any bit set (== 1)
+ */
+
+void smile_fee_set_hk_spw_link_disconnect_error(uint32_t spw_link_disconnect_error)
+{
+	if (spw_link_disconnect_error)
+		spw_link_disconnect_error = 1;
+
+	smile_fee->hk_reg_32 &= ~(0x1UL << 1);
+	smile_fee->hk_reg_32 |= spw_link_disconnect_error << 1;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1728,6 +2444,24 @@ uint32_t smile_fee_get_hk_spw_link_running(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set SpW link running error HK value
+ *
+ * @param spw_link_running_error either 0 or any bit set (== 1)
+ */
+
+void smile_fee_set_hk_spw_link_running_error(uint32_t spw_link_running_error)
+{
+	if (spw_link_running_error)
+		spw_link_running_error = 1;
+
+	smile_fee->hk_reg_32 &= ~0x1UL;
+	smile_fee->hk_reg_32 |= spw_link_running_error;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get frame counter HK value
  *
@@ -1740,6 +2474,19 @@ uint32_t smile_fee_get_hk_frame_counter(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set frame counter HK value
+ */
+
+void smile_fee_set_hk_frame_counter(uint16_t frame_counter)
+{
+	smile_fee->hk_reg_33 &= ~(0xFFFFUL << 16);
+	smile_fee->hk_reg_33 |= (0xFFFFUL & ((uint32_t) frame_counter)) << 16;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get FPGA op mode HK value
  */
@@ -1748,6 +2495,19 @@ uint8_t smile_fee_get_hk_fpga_op_mode(void)
 {
 	return (uint8_t) smile_fee->hk_reg_33 & 0x7FUL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set FPGA op mode HK value
+ */
+
+void smile_fee_set_hk_fpga_op_mode(uint8_t fpga_op_mode)
+{
+	smile_fee->hk_reg_33 &= ~0x7FUL;
+	smile_fee->hk_reg_33 |= 0x7FUL & (uint32_t) fpga_op_mode;
+}
+#endif /* FEE_SIM */
 
 
 /**
@@ -1762,6 +2522,24 @@ uint32_t smile_fee_get_hk_error_flag_spw_link_escape_error(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set error flag SpW link escape error HK value
+ *
+ * @param error_flag_spw_link_escape_error either 0 or any bit set (== 1)
+ */
+
+void smile_fee_set_hk_error_flag_spw_link_escape_error(uint32_t error_flag_spw_link_escape_error)
+{
+	if (error_flag_spw_link_escape_error)
+		error_flag_spw_link_escape_error = 1;
+
+	smile_fee->hk_reg_34 &= ~0x1UL;
+	smile_fee->hk_reg_34 |= error_flag_spw_link_escape_error;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get error flag SpW link credit error HK value
  *
@@ -1774,6 +2552,24 @@ uint32_t smile_fee_get_hk_error_flag_spw_link_credit_error(void)
 }
 
 
+#ifdef FEE_SIM
+/**
+ * @brief set error flag SpW link credit error HK value
+ *
+ * @param error_flag_spw_link_credit_error either 0 or any bit set (== 1)
+ */
+
+void smile_fee_set_hk_error_flag_spw_link_credit_error(uint32_t error_flag_spw_link_credit_error)
+{
+	if (error_flag_spw_link_credit_error)
+		error_flag_spw_link_credit_error = 1;
+
+	smile_fee->hk_reg_34 &= ~(0x1UL << 1);
+	smile_fee->hk_reg_34 |= error_flag_spw_link_credit_error << 1;
+}
+#endif /* FEE_SIM */
+
+
 /**
  * @brief get error flag SpW link parity error HK value
  *
@@ -1784,6 +2580,24 @@ uint32_t smile_fee_get_hk_error_flag_spw_link_parity_error(void)
 {
 	return (smile_fee->hk_reg_34 >> 2) & 0x1UL;
 }
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set error flag SpW link credit error HK value
+ *
+ * @param error_flag_spw_link_parity_error either 0 or any bit set (== 1)
+ */
+
+void smile_fee_set_hk_error_flag_spw_link_parity_error(uint32_t error_flag_spw_link_parity_error)
+{
+	if (error_flag_spw_link_parity_error)
+		error_flag_spw_link_parity_error = 1;
+
+	smile_fee->hk_reg_34 &= ~(0x1UL << 2);
+	smile_fee->hk_reg_34 |= error_flag_spw_link_parity_error << 2;
+}
+#endif /* FEE_SIM */
 
 
 /**
