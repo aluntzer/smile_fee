@@ -89,7 +89,7 @@ static struct sockaddr_in sockaddr_from_url(const char *url)
 	struct sockaddr_in sockaddr;
 
 
-	str = (char *) malloc(strlen(url));
+	str = (char *) malloc(strlen(url) + 1);
 	if (!str)  {
 		perror("malloc");
 		exit(EXIT_FAILURE);
@@ -241,8 +241,13 @@ static int usr_pkt_to_gresb(int fd, struct bridge_cfg *cfg)
 
 	recv_bytes  = recv(fd, recv_buffer, GRESB_PKT_SIZE_MAX, 0);
 
-	for (int i = 0; i < recv_bytes; i++)
-		printf("%c", recv_buffer[i]);
+#if 1
+	{
+		int i;
+		for (i = 0; i < recv_bytes; i++)
+			printf("%c", recv_buffer[i]);
+	}
+#endif
 
 	/* we SEND to the TX port */
 	ret = send_all(cfg->gresb_tx->socket,
@@ -309,6 +314,7 @@ static void *poll_socket(void *data)
 
 static int gresb_pkt_to_usr(int fd, struct bridge_cfg *cfg)
 {
+	int fdc;
 	int ret;
 	ssize_t recv_bytes;
 	uint8_t *recv_buffer;
@@ -320,10 +326,15 @@ static int gresb_pkt_to_usr(int fd, struct bridge_cfg *cfg)
 
 	recv_bytes  = recv(fd, recv_buffer, GRESB_PKT_SIZE_MAX, 0);
 
-	for (int i = 0; i < recv_bytes; i++)
-		printf("%c", recv_buffer[i]);
+#if 1
+	{
+		int i;
+		for (i = 0; i < recv_bytes; i++)
+			printf("%c", recv_buffer[i]);
+	}
+#endif
 
-	for(int fdc = 0; fdc <= cfg->bridge->n_fd; fdc++) {
+	for(fdc = 0; fdc <= cfg->bridge->n_fd; fdc++) {
 
 		if (!FD_ISSET(fdc, &cfg->bridge->set))
 			continue;
@@ -528,7 +539,7 @@ int main(int argc, char **argv)
 			printf("  -G ADDRESS                address of the GRESP\n");
 			printf("  -L LINK_ID                link id to use on GRESP\n");
 			printf("  -p PORT                   local port number (default %d)\n", port);
-			printf("  -s ADDRESS                local source address (default: %s\n", url);
+			printf("  -s ADDRESS                local source address (default: %s)\n", url);
 			printf("  -r ADDRESS:PORT           client mode: address and port of remote target\n");
 			printf("  -h, --help                print this help and exit\n");
 			printf("\n");
@@ -683,4 +694,7 @@ int main(int argc, char **argv)
 
 	if (gresb_tx.socket)
 		close(gresb_tx.socket);
+
+
+	return 0;
 }
