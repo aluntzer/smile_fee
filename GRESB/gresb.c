@@ -139,7 +139,7 @@ uint8_t *gresb_create_host_data_pkt(const uint8_t *data, uint32_t len)
 	struct host_to_gresb_pkt *pkt;
 
 
-	pkt = malloc(sizeof(struct host_to_gresb_pkt));
+	pkt = malloc(sizeof(struct host_to_gresb_pkt) + len);
 	if (!pkt)
 		return NULL;
 
