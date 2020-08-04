@@ -234,6 +234,7 @@ static int usr_pkt_to_gresb(int fd, struct bridge_cfg *cfg)
 {
 	int ret;
 	ssize_t recv_bytes;
+	uint8_t *gresb_pkt;
 	unsigned char *recv_buffer;
 
 
@@ -248,13 +249,20 @@ static int usr_pkt_to_gresb(int fd, struct bridge_cfg *cfg)
 			printf("%c", recv_buffer[i]);
 	}
 #endif
+	gresb_pkt = gresb_create_host_data_pkt(recv_buffer, recv_bytes);
+
+	if (!gresb_pkt) {
+		printf("error creating packet\n");
+		exit(EXIT_FAILURE);
+	}
 
 	/* we SEND to the TX port */
-	ret = send_all(cfg->gresb_tx->socket,
-		       recv_buffer, recv_bytes);
+	ret = send_all(cfg->gresb_tx->socket, gresb_pkt,
+		       gresb_get_host_data_pkt_size(gresb_pkt));
 	if (ret == -1)
 		perror("send");
 
+	gresb_destroy_host_data_pkt((struct host_to_gresb_pkt *) gresb_pkt);
 	free(recv_buffer);
 
 	return recv_bytes;
