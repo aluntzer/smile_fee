@@ -16,6 +16,7 @@
 
 #include <gresb.h>
 
+#define DEBUG 1
 
 #define DEFAULT_LINK 0
 #define DEFAULT_PORT 1234
@@ -60,7 +61,6 @@ static int send_all(int sock_fd, const unsigned char *buf, int len)
 
 	while (len) {
 
-		printf("len: %d\n", len);
 		n = send(sock_fd, buf, len, 0);
 
 		if (n == -1) {
@@ -242,11 +242,16 @@ static int usr_pkt_to_gresb(int fd, struct bridge_cfg *cfg)
 
 	recv_bytes  = recv(fd, recv_buffer, GRESB_PKT_SIZE_MAX, 0);
 
-#if 1
+	if (recv_bytes <= 0)
+		goto cleanup;
+
+#if DEBUG
 	{
+		printf("usr to gresb [%lu]: ", recv_bytes);
 		int i;
 		for (i = 0; i < recv_bytes; i++)
-			printf("%c", recv_buffer[i]);
+			printf("%x:", recv_buffer[i]);
+		printf("\n");
 	}
 #endif
 	gresb_pkt = gresb_create_host_data_pkt(recv_buffer, recv_bytes);
@@ -262,7 +267,11 @@ static int usr_pkt_to_gresb(int fd, struct bridge_cfg *cfg)
 	if (ret == -1)
 		perror("send");
 
+
+
 	gresb_destroy_host_data_pkt((struct host_to_gresb_pkt *) gresb_pkt);
+
+cleanup:
 	free(recv_buffer);
 
 	return recv_bytes;
@@ -334,13 +343,9 @@ static int gresb_pkt_to_usr(int fd, struct bridge_cfg *cfg)
 
 	recv_bytes  = recv(fd, recv_buffer, GRESB_PKT_SIZE_MAX, 0);
 
-#if 1
-	{
-		int i;
-		for (i = 0; i < recv_bytes; i++)
-			printf("%c", recv_buffer[i]);
-	}
-#endif
+	if (recv_bytes <= 0)
+		goto cleanup;
+
 
 	for(fdc = 0; fdc <= cfg->bridge->n_fd; fdc++) {
 
@@ -351,16 +356,24 @@ static int gresb_pkt_to_usr(int fd, struct bridge_cfg *cfg)
 			       gresb_get_spw_data(recv_buffer),
 			       gresb_get_spw_data_size(recv_buffer));
 
-		printf("size: %ld\n", gresb_get_spw_data_size(recv_buffer));
-
 		if (ret == -1) {
 			perror("send");
 			close(fdc);
 			FD_CLR(fdc, &cfg->bridge->set);
 		}
+#if DEBUG
+	{
+		printf("gresb to usr [%lu]: ",  gresb_get_spw_data_size(recv_buffer));
+		size_t i;
+		for (i = 0; i < gresb_get_spw_data_size(recv_buffer); i++)
+			printf("%x:", gresb_get_spw_data(recv_buffer)[i]);
+		printf("\n");
+	}
+#endif
+
 	}
 
-
+cleanup:
 	free(recv_buffer);
 
 
@@ -408,9 +421,9 @@ static void *poll_socket_gresb(void *data)
 			if (!FD_ISSET(fd, &r_set))
 				continue;
 
-			/* clean up disconnected socket */
-			if (gresb_pkt_to_usr(fd, cfg) <= 0) {
-				FD_CLR(fd, &cfg->set);
+			/* clean up disconnected gresb socket */
+			if (gresb_pkt_to_usr(fd, cfg) < 0) {
+				FD_CLR(fd, &r_set);
 				close(fd);
 			}
 		}
@@ -584,7 +597,7 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 	}
 
-	/* the GRESB answers to configuration  requests on the TX port */
+	/* the GRESB answers to configuration requests on the TX port */
 	ret = pthread_create(&gresb_tx.thread_poll, NULL,
 			     poll_socket_gresb, &gresb_tx);
 	if (ret) {
