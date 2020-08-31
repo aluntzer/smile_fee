@@ -528,6 +528,8 @@ int smile_fee_package(uint8_t *blob,
 	case RMAP_WRITE_ADDR_INC:
 	case RMAP_WRITE_ADDR_SINGLE_VERIFY:
 	case RMAP_WRITE_ADDR_INC_VERIFY:
+	case RMAP_WRITE_ADDR_SINGLE_VERIFY_REPLY:
+	case RMAP_WRITE_ADDR_INC_VERIFY_REPLY:
 		has_data_crc = 1;
 		n += 1;
 		break;
@@ -630,6 +632,9 @@ int smile_fee_set_return_path(uint8_t *path, uint8_t len)
 {
 	if (len > RMAP_MAX_REPLY_PATH_LEN)
 		return -1;
+
+	if (len & 0x3)
+		return -1;	/* not a multiple of 4 */
 
 	if (!path || !len) {
 		rpath     = NULL;

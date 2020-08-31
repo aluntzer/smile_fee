@@ -22,17 +22,17 @@
 #include <stdint.h>
 
 
-#define DPU_ADDR	0x28
-#define FEE_ADDR	0x5A
+#define DPU_ADDR	0x50
+#define FEE_ADDR	0x51
 
+#define DPATH	{1}
+#define RPATH	{0, 0, 0, 33}
 
-#define DPATH	{FEE_ADDR}
-#define RPATH	{0x00, 0x00, 0x00, DPU_ADDR}
-#define DPATH_LEN	1
-#define RPATH_LEN	4
+#define DPATH_LEN	0
+#define RPATH_LEN	0
 
 /* default FEE destkey */
-#define FEE_DEST_KEY	0x0
+#define FEE_DEST_KEY	0xD1
 
 
 /* set header size maximum so we can fit the largest possible rmap commands
