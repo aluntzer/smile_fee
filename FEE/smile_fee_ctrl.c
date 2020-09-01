@@ -48,7 +48,6 @@
  *	    development process. Make sure to inspect the latest register
  *	    map for changes.
  */
-#define FEE_SIM 1	/* XXX */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -585,6 +584,35 @@ void smile_fee_set_correction_bypass(uint32_t mode)
 
 
 /**
+ * @brief get DG en
+ *
+ * @returns 0 if DG operate as per mode
+ */
+
+uint32_t smile_fee_get_dg_en(void)
+{
+	return (smile_fee->cfg_reg_5 >> 25) & 0x1UL;
+}
+
+
+/**
+ * @brief set DG en
+ *
+ * @param mode set 0 to operate DG as per mode
+ */
+
+void smile_fee_set_dg_en(uint32_t mode)
+{
+	if (mode)
+		mode = 1;
+
+
+	smile_fee->cfg_reg_5 &= ~(0x1UL << 25);
+	smile_fee->cfg_reg_5 |=  (mode  << 25);
+}
+
+
+/**
  * @brief get vod_config
  *
  * @note no description available in register map document
@@ -851,12 +879,18 @@ void smile_fee_set_h_start(uint16_t row)
  *
  * @note as per register map document, the following return values
  *	 are currently valid:
- *	 0x0	on mode
- *	 0x1	full frame pattern mode
- *	 0x4	stand-by mode
- *	 0xd	immediate on mode (this is a command, not a mode)
- *	 0xf	frame transfer mode
- *	 0xe	full frame mode
+ *
+ *	 0x0 (On-Mode)
+ *	 0x1 (Frame Transfer (FT) Mode Pattern Mode)
+ *	 0x2 (Stand-By-Mode)
+ *	 0x3 (Frame Transfer Mode(FT))
+ *	 0x4 (Full Frame Mode(FF))
+ *	 0x5 (Parallel trap pumping mode 1 (FF))
+ *	 0x6 (Parallel trap pumping mode 2 (FF))
+ *	 0x7 (Serial trap pumping mode 1 (FF))
+ *	 0x8 (Serial trap pumping mode 2 (FF))
+ *	 0xd (Immediate On-Mode)  (this is a command and not a mode)
+ *
  */
 
 uint8_t smile_fee_get_ccd_mode_config(void)
@@ -872,12 +906,17 @@ uint8_t smile_fee_get_ccd_mode_config(void)
  *
  * @note as per register map document, the following return values
  *	 are currently valid:
- *	 0x0	on mode
- *	 0x1	full frame pattern mode
- *	 0x4	stand-by mode
- *	 0xd	immediate on mode (this is a command, not a mode)
- *	 0xf	frame transfer mode
- *	 0xe	full frame mode
+ *
+ *	 0x0 (On-Mode)
+ *	 0x1 (Frame Transfer (FT) Mode Pattern Mode)
+ *	 0x2 (Stand-By-Mode)
+ *	 0x3 (Frame Transfer Mode(FT))
+ *	 0x4 (Full Frame Mode(FF))
+ *	 0x5 (Parallel trap pumping mode 1 (FF))
+ *	 0x6 (Parallel trap pumping mode 2 (FF))
+ *	 0x7 (Serial trap pumping mode 1 (FF))
+ *	 0x8 (Serial trap pumping mode 2 (FF))
+ *	 0xd (Immediate On-Mode)  (this is a command and not a mode)
  *
  * @warn input parameter is not checked for validity
  */
@@ -990,56 +1029,160 @@ void smile_fee_set_clear_error_flag(uint32_t mode)
 
 
 /**
- * @brief get ccd1 single pixel threshold
+ * @brief get ccd2 E single pixel threshold
  *
  * @note this is the threshold above which a pixel may be considered a possible
  *	 soft X-ray event
  */
 
-uint16_t smile_fee_get_ccd1_single_pixel_treshold(void)
+uint16_t smile_fee_get_ccd2_e_pix_treshold(void)
 {
-	return (uint16_t) (smile_fee->cfg_reg_22 & 0xFFFUL);
+	return (uint16_t) (smile_fee->cfg_reg_22 & 0xFFFFUL);
 }
 
 
 /**
- * @brief set ccd1 single pixel threshold
+ * @brief set ccd2 E single pixel threshold
  *
  * @param threshold the threshold above which a pixel may be considered
  *		    a possible soft X-ray event
  */
 
-void smile_fee_set_ccd1_single_pixel_treshold(uint16_t threshold)
+void smile_fee_set_ccd2_e_pix_treshold(uint16_t threshold)
 {
-	smile_fee->cfg_reg_22 &= ~0xFFFUL;
-	smile_fee->cfg_reg_22 |=  0xFFFUL & ((uint32_t) threshold);
+	smile_fee->cfg_reg_22 &= ~0xFFFFUL;
+	smile_fee->cfg_reg_22 |=  0xFFFFUL & ((uint32_t) threshold);
 }
 
 
 /**
- * @brief get ccd2 single pixel threshold
+ * @brief get ccd2 F single pixel threshold
  *
  * @note this is the threshold above which a pixel may be considered a possible
  *	 soft X-ray event
  */
 
-uint16_t smile_fee_get_ccd2_single_pixel_treshold(void)
+uint16_t smile_fee_get_ccd2_f_pix_treshold(void)
 {
 	return (uint16_t) ((smile_fee->cfg_reg_22 >> 16) & 0xFFFFUL);
 }
 
 
 /**
- * @brief set ccd2 single pixel threshold
+ * @brief set ccd2 F single pixel threshold
  *
  * @param threshold the threshold above which a pixel may be considered
  *		    a possible soft X-ray event
  */
 
-void smile_fee_set_ccd2_single_pixel_treshold(uint16_t threshold)
+void smile_fee_set_ccd2_f_pix_treshold(uint16_t threshold)
 {
 	smile_fee->cfg_reg_22 &= ~(0xFFFFUL << 16);
 	smile_fee->cfg_reg_22 |=  (0xFFFFUL & ((uint32_t) threshold)) << 16;
+}
+
+
+/**
+ * @brief get ccd4 E single pixel threshold
+ *
+ * @note this is the threshold above which a pixel may be considered a possible
+ *	 soft X-ray event
+ */
+
+uint16_t smile_fee_get_ccd4_e_pix_treshold(void)
+{
+	return (uint16_t) (smile_fee->cfg_reg_23 & 0xFFFFUL);
+}
+
+
+/**
+ * @brief set ccd4 E single pixel threshold
+ *
+ * @param threshold the threshold above which a pixel may be considered
+ *		    a possible soft X-ray event
+ */
+
+void smile_fee_set_ccd4_e_pix_treshold(uint16_t threshold)
+{
+	smile_fee->cfg_reg_23 &= ~0xFFFFUL;
+	smile_fee->cfg_reg_23 |=  0xFFFFUL & ((uint32_t) threshold);
+}
+
+
+/**
+ * @brief get ccd4 F single pixel threshold
+ *
+ * @note this is the threshold above which a pixel may be considered a possible
+ *	 soft X-ray event
+ */
+
+uint16_t smile_fee_get_ccd4_f_pix_treshold(void)
+{
+	return (uint16_t) ((smile_fee->cfg_reg_23 >> 16) & 0xFFFFUL);
+}
+
+
+/**
+ * @brief set ccd4 F single pixel threshold
+ *
+ * @param threshold the threshold above which a pixel may be considered
+ *		    a possible soft X-ray event
+ */
+
+void smile_fee_set_ccd4_f_pix_treshold(uint16_t threshold)
+{
+	smile_fee->cfg_reg_23 &= ~(0xFFFFUL << 16);
+	smile_fee->cfg_reg_23 |=  (0xFFFFUL & ((uint32_t) threshold)) << 16;
+}
+
+
+/**
+ * @brief get pixel offset value
+ *
+ * @note his offset value is added to the average incoming pixel value
+ */
+
+uint8_t smile_fee_get_pix_offset(void)
+{
+	return (uint8_t) (smile_fee->cfg_reg_24 & 0xFFUL);
+}
+
+
+/**
+ * @brief set pixel offset value
+ *
+ * @offset  the offset value to be added to the average incoming pixel value
+ */
+
+void smile_fee_set_pix_offset(uint8_t offset)
+{
+	smile_fee->cfg_reg_24 &= ~0xFFUL;
+	smile_fee->cfg_reg_24 |=  0xFFUL & ((uint32_t) offset);
+}
+
+
+/**
+ * @brief get event packet limit
+ *
+ * @note this is the total number of even packet per CCD that will be transmitted
+ */
+
+uint32_t smile_fee_get_event_pkt_limit(void)
+{
+	return (uint32_t) ((smile_fee->cfg_reg_24 >> 8) & 0xFFFFFUL);
+}
+
+
+/**
+ * @brief set event packet limit
+ *
+ * @param pkt_limit the total number of even packet per CCD that will be transmitted
+ */
+
+void smile_fee_set_event_pkt_limit(uint32_t pkt_limit)
+{
+	smile_fee->cfg_reg_24 &= ~(0xFFFFFFUL << 8);
+	smile_fee->cfg_reg_23 |=  (0xFFFFFFUL & ((uint32_t) pkt_limit)) << 8;
 }
 
 
@@ -1056,7 +1199,7 @@ void smile_fee_set_ccd2_single_pixel_treshold(uint16_t threshold)
 
 uint32_t smile_fee_get_execute_op(void)
 {
-	return smile_fee->cfg_reg_24 & 0x1UL;
+	return smile_fee->cfg_reg_25 & 0x1UL;
 }
 
 
@@ -1079,8 +1222,8 @@ void smile_fee_set_execute_op(uint32_t mode)
 		mode = 1;
 
 
-	smile_fee->cfg_reg_24 &= ~0x1UL;
-	smile_fee->cfg_reg_24 |= mode;
+	smile_fee->cfg_reg_25 &= ~0x1UL;
+	smile_fee->cfg_reg_25 |= mode;
 }
 
 
@@ -2601,6 +2744,90 @@ void smile_fee_set_hk_error_flag_spw_link_parity_error(uint32_t error_flag_spw_l
 
 
 /**
+ * @brief get FPGA minor version HK value
+ *
+ * @returns the FPGA minor version
+ */
+
+uint8_t smile_fee_get_hk_fpga_minor_version(void)
+{
+	return (uint8_t) (smile_fee->hk_reg_35 & 0xFFUL);
+}
+
+
+#ifdef FEE_SIM
+
+/**
+ * @brief set FPGA minor version HK value
+ *
+ * @param minor the FPGA minor version
+ */
+
+void smile_fee_set_hk_fpga_minor_version(uint8_t minor)
+{
+	smile_fee->hk_reg_35 &= ~0xFFUL;
+	smile_fee->hk_reg_35 |=  0xFFUL & ((uint32_t) minor);
+}
+#endif /* FEE_SIM */
+
+
+/**
+ * @brief get FPGA major version HK value
+ *
+ * @returns the FPGA major version
+ */
+
+uint8_t smile_fee_get_hk_fpga_major_version(void)
+{
+	return (uint8_t) ((smile_fee->hk_reg_35 >> 8) & 0xFUL);
+}
+
+
+#ifdef FEE_SIM
+
+/**
+ * @brief set FPGA major version HK value
+ *
+ * @param minor the FPGA minor version
+ */
+
+void smile_fee_set_hk_fpga_major_version(uint8_t major)
+{
+	smile_fee->hk_reg_35 &= ~(0xFUL << 8);
+	smile_fee->hk_reg_35 |=  (0xFUL & ((uint32_t) major)) << 8;
+}
+#endif /* FEE_SIM */
+
+
+/**
+ * @brief get the board id the FPGA is housed on
+ *
+ * @returns the FPGA board id
+ */
+
+uint16_t smile_fee_get_hk_board_id(void)
+{
+	return (uint16_t) ((smile_fee->hk_reg_35 >> 20) & 0xFUL);
+}
+
+
+#ifdef FEE_SIM
+
+/**
+ * @brief set the board id the FPGA is housed on
+ *
+ * @param id the FPGA board id
+ */
+
+void smile_fee_set_hk_board_id(uint16_t id)
+{
+	smile_fee->hk_reg_35 &= ~(0x1FFUL << 20);
+	smile_fee->hk_reg_35 |=  (0x1FFUL & ((uint32_t) id)) << 20;
+}
+#endif /* FEE_SIM */
+
+
+/**
  * @brief sync configuration register 0
  *
  * @param dir the syncronisation direction
@@ -2832,6 +3059,27 @@ int smile_fee_sync_cfg_reg_22(enum sync_direction dir)
 
 
 /**
+ * @brief sync configuration register 23
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+int smile_fee_sync_cfg_reg_23(enum sync_direction dir)
+{
+	if (dir == FEE2DPU)
+		return smile_fee_sync(fee_read_cmd_cfg_reg_23,
+				      &smile_fee->cfg_reg_23, 0);
+
+	if (dir == DPU2FEE)
+		return smile_fee_sync(fee_write_cmd_cfg_reg_23,
+				      &smile_fee->cfg_reg_23, 4);
+
+	return -1;
+}
+
+
+/**
  * @brief sync configuration register 24
  *
  * @param dir the syncronisation direction
@@ -2847,6 +3095,27 @@ int smile_fee_sync_cfg_reg_24(enum sync_direction dir)
 	if (dir == DPU2FEE)
 		return smile_fee_sync(fee_write_cmd_cfg_reg_24,
 				      &smile_fee->cfg_reg_24, 4);
+
+	return -1;
+}
+
+
+/**
+ * @brief sync configuration register 25
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+int smile_fee_sync_cfg_reg_25(enum sync_direction dir)
+{
+	if (dir == FEE2DPU)
+		return smile_fee_sync(fee_read_cmd_cfg_reg_25,
+				      &smile_fee->cfg_reg_25, 0);
+
+	if (dir == DPU2FEE)
+		return smile_fee_sync(fee_write_cmd_cfg_reg_25,
+				      &smile_fee->cfg_reg_25, 4);
 
 	return -1;
 }
@@ -3116,6 +3385,21 @@ int smile_fee_sync_correction_bypass(enum sync_direction dir)
 
 
 /**
+ * @brief sync dg enable
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_dg_en(enum sync_direction dir)
+{
+	return smile_fee_sync_cfg_reg_5(dir);
+}
+
+
+
+/**
  * @brief sync vod_config
  * @note no description available in register map document
  *
@@ -3333,30 +3617,86 @@ int smile_fee_sync_clear_error_flag(enum sync_direction dir)
 
 
 /**
- * @brief sync ccd1 single pixel threshold
+ * @brief sync ccd2 E single pixel threshold
  *
  * @param dir the syncronisation direction
  *
  * @returns 0 on success, otherwise error
  */
 
-int smile_fee_sync_ccd1_single_pixel_treshold(enum sync_direction dir)
+int smile_fee_sync_ccd2_e_pix_treshold(enum sync_direction dir)
 {
 	return smile_fee_sync_cfg_reg_22(dir);
 }
 
 
 /**
- * @brief sync ccd2 single pixel threshold
+ * @brief sync ccd2 F single pixel threshold
  *
  * @param dir the syncronisation direction
  *
  * @returns 0 on success, otherwise error
  */
 
-int smile_fee_sync_ccd2_single_pixel_treshold(enum sync_direction dir)
+int smile_fee_sync_ccd2_f_pix_treshold(enum sync_direction dir)
 {
 	return smile_fee_sync_cfg_reg_22(dir);
+}
+
+
+/**
+ * @brief sync ccd4 E single pixel threshold
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_ccd4_e_pix_treshold(enum sync_direction dir)
+{
+	return smile_fee_sync_cfg_reg_23(dir);
+}
+
+
+/**
+ * @brief sync ccd4 F single pixel threshold
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_ccd4_f_pix_treshold(enum sync_direction dir)
+{
+	return smile_fee_sync_cfg_reg_23(dir);
+}
+
+
+/**
+ * @brief sync pix offset
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_pix_offset(enum sync_direction dir)
+{
+	return smile_fee_sync_cfg_reg_24(dir);
+}
+
+
+/**
+ * @brief sync event pkt limit
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_event_pkt_limit(enum sync_direction dir)
+{
+	return smile_fee_sync_cfg_reg_24(dir);
 }
 
 
@@ -3370,7 +3710,7 @@ int smile_fee_sync_ccd2_single_pixel_treshold(enum sync_direction dir)
 
 int smile_fee_sync_execute_op(enum sync_direction dir)
 {
-	return smile_fee_sync_cfg_reg_24(dir);
+	return smile_fee_sync_cfg_reg_25(dir);
 }
 
 

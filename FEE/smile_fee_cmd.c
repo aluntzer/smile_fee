@@ -393,6 +393,22 @@ int fee_read_cmd_cfg_reg_22(uint16_t trans_id, uint8_t *cmd)
 
 
 /**
+ * @brief create a command to read the FEE configuration register 23
+ *
+ * @param trans_id a transaction identifier
+ *
+ * @param cmd the command buffer; if NULL, the function returns the needed size
+ *
+ * @returns the size of the command data buffer or 0 on error
+ */
+
+int fee_read_cmd_cfg_reg_23(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_read_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_23);
+}
+
+
+/**
  * @brief create a command to read the FEE configuration register 24
  *
  * @param trans_id a transaction identifier
@@ -405,6 +421,22 @@ int fee_read_cmd_cfg_reg_22(uint16_t trans_id, uint8_t *cmd)
 int fee_read_cmd_cfg_reg_24(uint16_t trans_id, uint8_t *cmd)
 {
 	return fee_read_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_24);
+}
+
+
+/**
+ * @brief create a command to read the FEE configuration register 25
+ *
+ * @param trans_id a transaction identifier
+ *
+ * @param cmd the command buffer; if NULL, the function returns the needed size
+ *
+ * @returns the size of the command data buffer or 0 on error
+ */
+
+int fee_read_cmd_cfg_reg_25(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_read_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_25);
 }
 
 
@@ -585,6 +617,22 @@ int fee_write_cmd_cfg_reg_22(uint16_t trans_id, uint8_t *cmd)
 
 
 /**
+ * @brief create a command to write the FEE configuration register 23
+ *
+ * @param trans_id a transaction identifier
+ *
+ * @param cmd the command buffer; if NULL, the function returns the needed size
+ *
+ * @returns the size of the command data buffer or 0 on error
+ */
+
+int fee_write_cmd_cfg_reg_23(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_write_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_23);
+}
+
+
+/**
  * @brief create a command to write the FEE configuration register 24
  *
  * @param trans_id a transaction identifier
@@ -597,6 +645,22 @@ int fee_write_cmd_cfg_reg_22(uint16_t trans_id, uint8_t *cmd)
 int fee_write_cmd_cfg_reg_24(uint16_t trans_id, uint8_t *cmd)
 {
 	return fee_write_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_24);
+}
+
+
+/**
+ * @brief create a command to write the FEE configuration register 25
+ *
+ * @param trans_id a transaction identifier
+ *
+ * @param cmd the command buffer; if NULL, the function returns the needed size
+ *
+ * @returns the size of the command data buffer or 0 on error
+ */
+
+int fee_write_cmd_cfg_reg_25(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_write_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_25);
 }
 
 

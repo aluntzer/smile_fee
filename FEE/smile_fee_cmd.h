@@ -22,7 +22,7 @@
 
 #include <stdint.h>
 
-/* FEE RW registers (SMILE-MSSL-PL-Register_map_v0.10_Draft) */
+/* FEE RW registers (SMILE-MSSL-PL-Register_map_v0.14_Draft) */
 
 #define FEE_CFG_REG_0		0x00000000UL
 #define FEE_CFG_REG_1		0x00000004UL
@@ -47,11 +47,12 @@
 #define FEE_CFG_REG_20		0x00000050UL
 #define FEE_CFG_REG_21		0x00000054UL
 #define FEE_CFG_REG_22		0x00000058UL
-#define FEE_CFG_REG_23		0x0000005CUL	/* reserved */
+#define FEE_CFG_REG_23		0x0000005CUL
 #define FEE_CFG_REG_24		0x00000060UL
+#define FEE_CFG_REG_25		0x00000064UL
 
 
-/* FEE  RO registers (SMILE-MSSL-PL-Register_map_v0.10_Draft) */
+/* FEE  RO registers (SMILE-MSSL-PL-Register_map_v0.14_Draft) */
 
 #define FEE_HK_REG_0		0x00000700	/* reserved */
 #define FEE_HK_REG_1		0x00000704	/* reserved */
@@ -114,7 +115,9 @@ int fee_read_cmd_cfg_reg_19(uint16_t trans_id, uint8_t *cmd);
 int fee_read_cmd_cfg_reg_20(uint16_t trans_id, uint8_t *cmd);
 int fee_read_cmd_cfg_reg_21(uint16_t trans_id, uint8_t *cmd);
 int fee_read_cmd_cfg_reg_22(uint16_t trans_id, uint8_t *cmd);
+int fee_read_cmd_cfg_reg_23(uint16_t trans_id, uint8_t *cmd);
 int fee_read_cmd_cfg_reg_24(uint16_t trans_id, uint8_t *cmd);
+int fee_read_cmd_cfg_reg_25(uint16_t trans_id, uint8_t *cmd);
 
 
 /* FEE configuration register write accessors */
@@ -129,7 +132,9 @@ int fee_write_cmd_cfg_reg_19(uint16_t trans_id, uint8_t *cmd);
 int fee_write_cmd_cfg_reg_20(uint16_t trans_id, uint8_t *cmd);
 int fee_write_cmd_cfg_reg_21(uint16_t trans_id, uint8_t *cmd);
 int fee_write_cmd_cfg_reg_22(uint16_t trans_id, uint8_t *cmd);
+int fee_write_cmd_cfg_reg_23(uint16_t trans_id, uint8_t *cmd);
 int fee_write_cmd_cfg_reg_24(uint16_t trans_id, uint8_t *cmd);
+int fee_write_cmd_cfg_reg_25(uint16_t trans_id, uint8_t *cmd);
 
 
 /* FEE housekeeping register read accessors */
