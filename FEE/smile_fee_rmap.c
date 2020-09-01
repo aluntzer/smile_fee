@@ -271,7 +271,7 @@ static int smile_fee_process_rx(void)
 #if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
 		{
 			unsigned int i;
-			uint32_t *p = (uint32_t *) &local_addr;
+			uint32_t *p = (uint32_t *) local_addr;
 
 			for (i = 0; i < (rp->data_len / 4); i++)
 				be32_to_cpus(&p[i]);

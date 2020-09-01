@@ -7,16 +7,15 @@
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <linux/tcp.h>
 
 #include <signal.h>
 #include <sys/types.h>
 #include <netdb.h>
 #include <pthread.h>
 
-
 #include <gresb.h>
 
-#define DEBUG 1
 
 #define DEFAULT_LINK 0
 #define DEFAULT_PORT 1234
@@ -36,6 +35,10 @@ struct bridge_cfg {
 	struct bridge_cfg *bridge;
 	struct bridge_cfg *gresb_tx;
 	struct bridge_cfg *gresb_rx;
+
+	int  raw;	/* if set, use raw bytes on user ports,
+			 * otherwise we expect gresb packet format
+			 */
 };
 
 
@@ -236,40 +239,71 @@ static int usr_pkt_to_gresb(int fd, struct bridge_cfg *cfg)
 	ssize_t recv_bytes;
 	uint8_t *gresb_pkt;
 	unsigned char *recv_buffer;
+	ssize_t pkt_size;
+
+	uint8_t gresb_hdr[4];	/* host-to-gresb header is 4 bytes */
 
 
-	recv_buffer = malloc(GRESB_PKT_SIZE_MAX);
+	if (cfg->raw) {
 
-	recv_bytes  = recv(fd, recv_buffer, GRESB_PKT_SIZE_MAX, 0);
+		recv_buffer = malloc(GRESB_PKT_SIZE_MAX);
+
+		recv_bytes  = recv(fd, recv_buffer, GRESB_PKT_SIZE_MAX, 0);
+
+	} else {
+
+		/* try to grab a header */
+		recv_bytes = recv(fd, gresb_hdr, 4, MSG_PEEK);
+		if (recv_bytes < 4)
+			return 0;
+
+		/* we got at least a header, now allocate space for a host-to-gresb
+		 * packet (data + header) and start receiving
+		 * note the lack of basic sanity checks...
+		 */
+		pkt_size = gresb_get_spw_data_size(gresb_hdr) + 4;
+		recv_buffer = malloc(pkt_size);
+
+		recv_bytes  = recv(fd, recv_buffer, pkt_size, 0);
+	}
 
 	if (recv_bytes <= 0)
 		goto cleanup;
 
 #if DEBUG
 	{
-		printf("usr to gresb [%lu]: ", recv_bytes);
+		printf("usr to GRESB [%lu]: ", recv_bytes);
 		int i;
 		for (i = 0; i < recv_bytes; i++)
-			printf("%x:", recv_buffer[i]);
+			printf("%02X:", recv_buffer[i]);
 		printf("\n");
 	}
 #endif
-	gresb_pkt = gresb_create_host_data_pkt(recv_buffer, recv_bytes);
 
-	if (!gresb_pkt) {
-		printf("error creating packet\n");
-		exit(EXIT_FAILURE);
+	if (cfg->raw) {
+
+		gresb_pkt = gresb_create_host_data_pkt(recv_buffer, recv_bytes);
+
+		if (!gresb_pkt) {
+			printf("error creating packet\n");
+			exit(EXIT_FAILURE);
+		}
+
+		/* we SEND to the TX port */
+		ret = send_all(cfg->gresb_tx->socket, gresb_pkt,
+			       gresb_get_host_data_pkt_size(gresb_pkt));
+		if (ret == -1)
+			perror("send");
+
+
+		gresb_destroy_host_data_pkt((struct host_to_gresb_pkt *) gresb_pkt);
+
+	} else {
+
+		ret = send_all(cfg->gresb_tx->socket, recv_buffer, recv_bytes);
+		if (ret == -1)
+			perror("send");
 	}
-
-	/* we SEND to the TX port */
-	ret = send_all(cfg->gresb_tx->socket, gresb_pkt,
-		       gresb_get_host_data_pkt_size(gresb_pkt));
-	if (ret == -1)
-		perror("send");
-
-
-
-	gresb_destroy_host_data_pkt((struct host_to_gresb_pkt *) gresb_pkt);
 
 cleanup:
 	free(recv_buffer);
@@ -308,7 +342,7 @@ static void *poll_socket(void *data)
 
 		/* select ready sockets */
 		if (select((cfg->n_fd + 1), &r_set, NULL, NULL, &to) <= 0) {
-			usleep(1000);
+			usleep(100);
 			continue;
 		}
 
@@ -327,7 +361,7 @@ static void *poll_socket(void *data)
 
 	return NULL;
 }
-
+#include <rmap.h>
 
 static int gresb_pkt_to_usr(int fd, struct bridge_cfg *cfg)
 {
@@ -335,13 +369,37 @@ static int gresb_pkt_to_usr(int fd, struct bridge_cfg *cfg)
 	int ret;
 	ssize_t recv_bytes;
 	uint8_t *recv_buffer;
+	ssize_t pkt_size;
+
+	uint8_t gresb_hdr[4];	/* gresb-to-host header is 4 bytes */
 
 
 
+	/* try to grab a header */
+	recv_bytes = recv(fd, gresb_hdr, 4, MSG_PEEK);
+	if (recv_bytes < 4)
+		return 0;
 
-	recv_buffer = malloc(GRESB_PKT_SIZE_MAX);
+	/* we got at least a header, now allocate space for a gresb-to-host
+	 * packet (data + header) and start receiving
+	 * note the lack of basic sanity checks...
+	 */
+	pkt_size = gresb_get_spw_data_size(gresb_hdr) + 4;
+	recv_buffer = malloc(pkt_size);
 
-	recv_bytes  = recv(fd, recv_buffer, GRESB_PKT_SIZE_MAX, 0);
+	recv_bytes  = recv(fd, recv_buffer, pkt_size, 0);
+
+
+#if DEBUG
+	{
+		printf("GRESB to usr [%lu]: ",  gresb_get_spw_data_size(recv_buffer));
+		size_t i;
+		for (i = 0; i < gresb_get_spw_data_size(recv_buffer); i++)
+			printf("%02X:", gresb_get_spw_data(recv_buffer)[i]);
+		printf("\n");
+		rmap_parse_pkt((uint8_t *) gresb_get_spw_data(recv_buffer));
+	}
+#endif
 
 	if (recv_bytes <= 0)
 		goto cleanup;
@@ -352,24 +410,22 @@ static int gresb_pkt_to_usr(int fd, struct bridge_cfg *cfg)
 		if (!FD_ISSET(fdc, &cfg->bridge->set))
 			continue;
 
-		ret = send_all(fdc,
-			       gresb_get_spw_data(recv_buffer),
-			       gresb_get_spw_data_size(recv_buffer));
+		if (cfg->raw) {
+			/* extract data */
+			ret = send_all(fdc,
+				       gresb_get_spw_data(recv_buffer),
+				       gresb_get_spw_data_size(recv_buffer));
+		} else {
+			/* forward packet */
+			ret = send_all(fdc, recv_buffer, recv_bytes);
+		}
 
 		if (ret == -1) {
 			perror("send");
 			close(fdc);
 			FD_CLR(fdc, &cfg->bridge->set);
 		}
-#if DEBUG
-	{
-		printf("gresb to usr [%lu]: ",  gresb_get_spw_data_size(recv_buffer));
-		size_t i;
-		for (i = 0; i < gresb_get_spw_data_size(recv_buffer); i++)
-			printf("%x:", gresb_get_spw_data(recv_buffer)[i]);
-		printf("\n");
-	}
-#endif
+
 
 	}
 
@@ -433,6 +489,12 @@ static void *poll_socket_gresb(void *data)
 }
 
 
+static void set_tcp_nodelay(struct bridge_cfg *cfg)
+{
+	int flag = 1;
+
+	setsockopt(cfg->socket, IPPROTO_TCP, TCP_NODELAY, (void *) &flag, sizeof(int));
+}
 
 
 
@@ -473,13 +535,14 @@ int main(int argc, char **argv)
 	port     = DEFAULT_PORT;
 	sprintf(host, "%s", DEFAULT_ADDR);
 
+	bridge.raw      = 0; /* expect gresb format */
 	bridge.gresb_tx = &gresb_tx;
 	bridge.gresb_rx = &gresb_rx;
 	gresb_tx.bridge = &bridge;
 	gresb_rx.bridge = &bridge;
 
 
-	while ((opt = getopt(argc, argv, "G:L:p:s:r:h")) != -1) {
+	while ((opt = getopt(argc, argv, "G:L:p:s:r:bh")) != -1) {
 		switch (opt) {
 
 		case 'G':
@@ -554,15 +617,20 @@ int main(int argc, char **argv)
 
 			break;
 
+		case 'b':
+			bridge.raw = 1;
+			break;
+
 		case 'h':
 		default:
 			printf("\nUsage: %s [OPTIONS]\n", argv[0]);
 			printf("  -G ADDRESS                address of the GRESP\n");
 			printf("  -L LINK_ID                link id to use on GRESP\n");
-			printf("  -p PORT                   local port number (default %d)\n", port);
+			printf("  -p PORT                   local uplink port number (default %d)\n", port);
 			printf("  -s ADDRESS                local source address (default: %s)\n", url);
 			printf("  -r ADDRESS:PORT           client mode: address and port of remote target\n");
-			printf("  -h, --help                print this help and exit\n");
+			printf("  -b			    exchange raw binary data on uplink port (expect GRESB format otherwise)\n");
+			printf("  -h                        print this help and exit\n");
 			printf("\n");
 			exit(0);
 		}
@@ -674,6 +742,9 @@ int main(int argc, char **argv)
 
 		printf("Started in CLIENT mode\n");
 	}
+
+	set_tcp_nodelay(&bridge);
+
 
 
 	/**
