@@ -18,6 +18,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <linux/tcp.h>
+
+#include <gresb.h>
+
 #include <smile_fee_cfg.h>
 #include <smile_fee_ctrl.h>
 #include <smile_fee_rmap.h>
@@ -32,6 +42,7 @@
 #undef GRSPW2_DEFAULT_MTU
 #define GRSPW2_DEFAULT_MTU (MAX_PAYLOAD_SIZE + 128)
 
+int bridge_fd;
 
 
 /* for our simulated fee, you can use the accessor part of the library and
@@ -117,6 +128,7 @@ int fee_sim_package(uint8_t *blob,
 }
 
 /* simulate FEE receiving data */
+__attribute__((unused))
 static void rmap_sim_rx(uint8_t *pkt)
 {
 	int i, n;
@@ -165,9 +177,10 @@ static void rmap_sim_rx(uint8_t *pkt)
 
 	switch (rp->ri.cmd) {
 		case RMAP_READ_ADDR_INC:
+#ifdef DEBUG
 			printf("RMAP_READ_ADDR_INC\n");
 			printf("read from addr: %x, size %d \n", rp->addr, rp->data_len);
-
+#endif
 			data = malloc(rp->data_len);
 			if (!data) {
 				printf("error allocating buffer\n");
@@ -185,8 +198,10 @@ static void rmap_sim_rx(uint8_t *pkt)
 			break;
 
 		case RMAP_WRITE_ADDR_INC_VERIFY_REPLY:
+#ifdef DEBUG
 			printf("RMAP_WRITE_ADDR_INC_VERIFY_REPLY\n");
 			printf("write to addr: %x, size %d \n", rp->addr, rp->data_len);
+#endif
 			/* copy the payload into the simulated register
 			 * map. This works because the register map in the FEE
 			 * starts at address 0x0
@@ -253,7 +268,7 @@ static void rmap_sim_rx(uint8_t *pkt)
 
 
 /* simulate FEE sending data */
-
+__attribute__((unused))
 static int rmap_sim_tx(uint8_t *pkt)
 {
 	int i;
@@ -325,10 +340,10 @@ static int32_t rmap_tx(const void *hdr,  uint32_t hdr_size,
 		       const uint8_t non_crc_bytes,
 		       const void *data, uint32_t data_size)
 {
-#if 1
 	int pkt_size;
-	uint8_t *blob ;
+	uint8_t *blob;
 
+	uint8_t *gresb_pkt __attribute__((unused));
 
 	/* determine required buffer size */
 	pkt_size = smile_fee_package(NULL, hdr, hdr_size, non_crc_bytes,
@@ -345,26 +360,34 @@ static int32_t rmap_tx(const void *hdr,  uint32_t hdr_size,
 	pkt_size = smile_fee_package(blob, hdr, hdr_size, non_crc_bytes,
 				     data, data_size);
 
-#if 0
-	/* print it */
-	for (i = 0; i < pkt_size; i++)
-	       printf("%02x:", blob[i]);
-	printf("\n");
-#endif
+#ifdef FEE_SIM
+
 	/* "send" to FEE */
 	rmap_sim_rx(blob);
+#else
+
+	/* encapsulate in GRESB packet and send */
+	gresb_pkt = gresb_create_host_data_pkt(blob, pkt_size);
+
+	if(send(bridge_fd, gresb_pkt, gresb_get_host_data_pkt_size(gresb_pkt), 0) < 0) {
+		perror("Send failed");
+		return -1;
+	}
+
+	gresb_destroy_host_data_pkt((struct host_to_gresb_pkt *) gresb_pkt);
+
 
 	free(blob);
+#endif
 
-	return 0;
-
-#else
+#if 0
 	/* adapt to IASW like this */
 	CrFwPckt_t pckt; /* <- allocate and copy hdr and data into that */
 	/* maybe use smile_fee_package() for that) */
 	CrIbFeePcktHandover(CrFwPckt_t pckt)
-	return 0;
 #endif
+
+	return 0;
 }
 
 
@@ -374,14 +397,62 @@ static int32_t rmap_tx(const void *hdr,  uint32_t hdr_size,
  * @note you may want to reimplement this function if you use a different
  *	 SpaceWire interface or if you want inject RMAP packets via a
  *	 different mechanism
+ * @note pkt ist allocated by the caller
  */
 
 static uint32_t rmap_rx(uint8_t *pkt)
 {
-#if 1
-	return rmap_sim_tx(pkt);
 
+#if FEE_SIM
+	return rmap_sim_tx(pkt);
 #else
+	int recv_bytes;
+	static uint32_t pkt_size; /* keep last packet size */
+
+	uint8_t gresb_hdr[4];	/* gresb-to-host header is 4 bytes */
+
+	uint8_t *recv_buffer;
+
+	if (!pkt) {	/* next packet size requested */
+
+		/* try to grab a header */
+
+		//recv_bytes = recv(bridge_fd, gresb_hdr, 4, MSG_PEEK);
+		recv_bytes = recv(bridge_fd, gresb_hdr, 4, MSG_PEEK | MSG_DONTWAIT);
+
+		/* we won't bother, this is a stupid demo, not production code */
+		if (recv_bytes <= 0)
+			return 0;
+
+		/* header is 4 bytes... */
+		if (recv_bytes < 4)
+			return 0;
+
+		pkt_size = gresb_get_spw_data_size(gresb_hdr);
+
+		/* tell caller about next packet */
+		return pkt_size;
+	}
+
+	/* we packet space, now start receiving
+	 * note the lack of basic sanity checks...
+	 */
+
+	/* buffer is payload + header */
+	recv_buffer = malloc(pkt_size + 4);
+
+	recv_bytes  = recv(bridge_fd, recv_buffer, pkt_size + 4, 0);
+
+
+	/* the caller supplied their own buffer */
+	memcpy(pkt, gresb_get_spw_data(recv_buffer), pkt_size);
+	free(recv_buffer);
+
+	return pkt_size;
+#endif
+
+
+#if 0
 	/* adapt to IASW like this */
 
 
@@ -440,12 +511,15 @@ static uint32_t rmap_rx(uint8_t *pkt)
  * @note prints abort message if pending status is non-zero after 10 retries
  */
 
-static void sync(void)
+static void sync_rmap(void)
 {
 	int cnt = 0;
-	printf("syncing...");
+	printf("\nsyncing...");
 	while (smile_fee_rmap_sync_status()) {
+		usleep(10000);
+#if DEBUG
 		printf("pending: %d\n", smile_fee_rmap_sync_status());
+#endif
 
 		if (cnt++ > 10) {
 			printf("aborting; de");
@@ -453,7 +527,7 @@ static void sync(void)
 		}
 
 	}
-	printf("synced\n");
+	printf("synced\n\n");
 }
 
 
@@ -465,6 +539,44 @@ static void sync(void)
 
 static void smile_fee_demo(void)
 {
+	printf("sync vstart from FEE\n");
+	smile_fee_sync_vstart(FEE2DPU);
+
+
+	printf("sync ccd2 e/f single pixel threshold from FEE\n");
+	smile_fee_sync_ccd2_e_pix_treshold(FEE2DPU);
+
+	sync_rmap();
+
+	printf("ccd2 e value now: %x\n", smile_fee_get_ccd2_e_pix_treshold());
+	printf("ccd2 f value now: %x\n", smile_fee_get_ccd2_f_pix_treshold());
+
+
+	printf("setting2 ccd e/f local values\n");
+	smile_fee_set_ccd2_e_pix_treshold(0x7b);
+	smile_fee_set_ccd2_f_pix_treshold(0x7c);
+
+	printf("syncing ccd2 e/f single pixel thresold to FEE\n");
+	smile_fee_sync_ccd2_e_pix_treshold(DPU2FEE);
+
+	sync_rmap();
+
+	printf("clearing local values for verification\n");
+	smile_fee_set_ccd2_e_pix_treshold(0x0);
+	smile_fee_set_ccd2_f_pix_treshold(0x0);
+
+	printf("syncing back ccd2 e/f single pixel thresold from FEE\n");
+	smile_fee_sync_ccd2_e_pix_treshold(FEE2DPU);
+
+	sync_rmap();
+
+	printf("ccd1 value now: %x\n", smile_fee_get_ccd2_e_pix_treshold());
+	printf("ccd2 value now: %x\n", smile_fee_get_ccd2_f_pix_treshold());
+
+
+	printf("standing by\n");
+	while(1) usleep(1000000); /* stop here for now */
+
 
 	printf("Configuring start of vertical row shared with charge injection\n");
 	smile_fee_set_vstart(35);
@@ -478,7 +590,7 @@ static void smile_fee_demo(void)
 	smile_fee_sync_parallel_toi_period(DPU2FEE);
 
 	printf("Waiting for sync to complete\n");
-	sync();
+	sync_rmap();
 
 	printf("Verifying configured values in FEE\n");
 
@@ -491,7 +603,7 @@ static void smile_fee_demo(void)
 	smile_fee_sync_parallel_toi_period(FEE2DPU);
 
 	printf("Waiting for sync to complete\n");
-	sync();
+	sync_rmap();
 
 
 	printf("Checking values: vertical row shared with charge injection: ");
@@ -516,7 +628,7 @@ static void smile_fee_demo(void)
 	printf("Syncing execute op flag to FEE via RMAP\n");
 	smile_fee_sync_execute_op(DPU2FEE);
 	printf("Waiting for sync to complete\n");
-	sync();
+	sync_rmap();
 
 
 	printf("Waiting for FEE to complete operation\n");
@@ -525,7 +637,7 @@ static void smile_fee_demo(void)
 		printf("Syncing execute op flag from FEE to DPU via RMAP\n");
 		smile_fee_sync_execute_op(FEE2DPU);
 		printf("Waiting for sync to complete\n");
-		sync();
+		sync_rmap();
 
 		if (!smile_fee_get_execute_op())
 			break;
@@ -539,13 +651,32 @@ static void smile_fee_demo(void)
 
 
 
-
-
 int main(void)
 {
-#if 0
 	uint8_t dpath[] = DPATH;
 	uint8_t rpath[] = RPATH;
+
+#if !defined (FEE_SIM)
+	int flag = 1;
+	struct sockaddr_in server;
+
+
+	bridge_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+	setsockopt(bridge_fd, IPPROTO_TCP, TCP_NODELAY, (void *) &flag, sizeof(int));
+
+	server.sin_addr.s_addr = inet_addr("127.0.0.1");
+	server.sin_family = AF_INET;
+	server.sin_port = htons(1234);
+
+
+	if (connect(bridge_fd, (struct sockaddr *) &server, sizeof(server)) < 0) {
+		perror("connect failed. Error");
+		return 1;
+	}
+
+	/* set non-blocking so we can recv() easily */
+	fcntl(bridge_fd, F_SETFL, fcntl(bridge_fd, F_GETFL, 0) | O_NONBLOCK);
 #endif
 
 	/* initialise the libraries */
@@ -558,8 +689,8 @@ int main(void)
 	smile_fee_set_source_logical_address(DPU_ADDR);
 	smile_fee_set_destination_key(FEE_DEST_KEY);
 	smile_fee_set_destination_logical_address(FEE_ADDR);
-	smile_fee_set_destination_path(NULL, 0);
-	smile_fee_set_return_path(NULL, 0);
+	smile_fee_set_destination_path(dpath, DPATH_LEN);
+	smile_fee_set_return_path(rpath, RPATH_LEN);
 
 	/* now run the demonstrator */
 	smile_fee_demo();

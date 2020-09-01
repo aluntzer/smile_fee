@@ -3,10 +3,10 @@ SOURCEDIR	 = ./
 INCLUDEDIR       = ./
 BUILDDIR         = ./
 PATH            +=
-CFLAGS          := -O2 -W -Wall -Wextra #-Wno-unused #-Werror -pedantic 
-CPPFLAGS        := -I$(INCLUDEDIR)
+CFLAGS          += -O2 -W -Wall -Wextra #-Wno-unused #-Werror -pedantic
+CPPFLAGS        := -I$(INCLUDEDIR) -I../GRESB
 LDFLAGS         := -lpthread
-SOURCES         := $(wildcard *.c)
+SOURCES         := $(wildcard *.c) ../GRESB/gresb.c
 OBJECTS         := $(patsubst %.c, $(BUILDDIR)/%.o, $(subst $(SOURCEDIR)/,, $(SOURCES)))
 TARGET          := fee_demo 
 
