@@ -77,8 +77,8 @@ static int fee_read_cmd_register_internal(uint16_t trans_id, uint8_t *cmd,
 static int fee_write_cmd_register_internal(uint16_t trans_id, uint8_t *cmd,
 					    uint32_t addr)
 {
-	return smile_fee_gen_cmd(trans_id, cmd, RMAP_WRITE_ADDR_INC_VERIFY_REPLY,
-			    addr, 4);
+	return smile_fee_gen_cmd(trans_id, cmd, RMAP_WRITE_ADDR_INC_REPLY,
+				 addr, 4);
 }
 
 

@@ -132,9 +132,23 @@ struct fee_event_dection {
 } __attribute__((packed));
 
 
+__extension__
+struct fee_data_pkt {
+	struct fee_data_hdr hdr;
+	uint8_t *data;
+} __attribute__((packed));
 
+__extension__
+struct fee_pattern {
+	union {
+		uint16_t ccd:1;
+		uint16_t side:1;
+		uint16_t row:7;
+		uint16_t col:7;
+		uint16_t pat;
+	};
 
-
+} __attribute__((packed));
 
 
 

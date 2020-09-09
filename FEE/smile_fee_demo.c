@@ -28,10 +28,10 @@
 
 #include <gresb.h>
 
+#include <smile_fee.h>
 #include <smile_fee_cfg.h>
 #include <smile_fee_ctrl.h>
 #include <smile_fee_rmap.h>
-
 
 #include <rmap.h>	/* for FEE simulation */
 
@@ -392,6 +392,70 @@ static int32_t rmap_tx(const void *hdr,  uint32_t hdr_size,
 
 
 /**
+ * dirty hack for packet reception, more or less a copy of rmap_rx()
+ */
+
+static uint32_t pkt_rx(uint8_t *pkt)
+{
+	int recv_bytes;
+	static uint32_t pkt_size; /* keep last packet size */
+
+	/* XXX: gresb-to-host header is just 4 bytes, but we need 2 extra in
+	 * order to be able to distinguish between rmap and non-rmap packets
+	 *
+	 *
+	 * NOTE THAT THIS IS A DIRTY HACK FOR THE DEMONSTRATOR ONLY, DO NOT DO
+	 * THIS IN PRODUCTION CODE! EVER!
+	 */
+
+	uint8_t gresb_hdr[4+2];
+
+	uint8_t *recv_buffer;
+
+	if (!pkt) {	/* next packet size requested */
+
+		/* try to grab a header */
+		recv_bytes = recv(bridge_fd, gresb_hdr, 6, MSG_PEEK | MSG_DONTWAIT);
+
+		/* we won't bother, this is a stupid demo, not production code */
+		if (recv_bytes <= 0)
+			return 0;
+
+		/* header is 4 bytes, but we need 6 */
+		if (recv_bytes < (4 + 2))
+			return 0;
+
+		pkt_size = gresb_get_spw_data_size(gresb_hdr);
+
+		/* XXX the protocol id is (or should be) in byte 6 */
+		if (gresb_hdr[5] != FEE_DATA_PROTOCOL)
+			return 0;
+
+		/* tell caller about next packet */
+		return pkt_size;
+	}
+
+	/* we packet space, now start receiving
+	 * note the lack of basic sanity checks...
+	 */
+
+	/* buffer is payload + header */
+	recv_buffer = malloc(pkt_size + 4);
+
+	recv_bytes  = recv(bridge_fd, recv_buffer, pkt_size + 4, 0);
+
+
+	/* the caller supplied their own buffer */
+	memcpy(pkt, gresb_get_spw_data(recv_buffer), pkt_size);
+	free(recv_buffer);
+
+	return pkt_size;
+
+}
+
+
+
+/**
  * rx function for smile_fee_ctrl
  *
  * @note you may want to reimplement this function if you use a different
@@ -409,26 +473,36 @@ static uint32_t rmap_rx(uint8_t *pkt)
 	int recv_bytes;
 	static uint32_t pkt_size; /* keep last packet size */
 
-	uint8_t gresb_hdr[4];	/* gresb-to-host header is 4 bytes */
+	/* XXX: gresb-to-host header is just 4 bytes, but we need 2 extra in
+	 * order to be able to distinguish between rmap and non-rmap packets
+	 *
+	 *
+	 * NOTE THAT THIS IS A DIRTY HACK FOR THE DEMONSTRATOR ONLY, DO NOT DO
+	 * THIS IN PRODUCTION CODE! EVER!
+	 */
+
+	uint8_t gresb_hdr[4+2];
 
 	uint8_t *recv_buffer;
 
 	if (!pkt) {	/* next packet size requested */
 
 		/* try to grab a header */
-
-		//recv_bytes = recv(bridge_fd, gresb_hdr, 4, MSG_PEEK);
-		recv_bytes = recv(bridge_fd, gresb_hdr, 4, MSG_PEEK | MSG_DONTWAIT);
+		recv_bytes = recv(bridge_fd, gresb_hdr, 6, MSG_PEEK | MSG_DONTWAIT);
 
 		/* we won't bother, this is a stupid demo, not production code */
 		if (recv_bytes <= 0)
 			return 0;
 
-		/* header is 4 bytes... */
-		if (recv_bytes < 4)
+		/* header is 4 bytes, but we need 6 */
+		if (recv_bytes < (4 + 2))
 			return 0;
 
 		pkt_size = gresb_get_spw_data_size(gresb_hdr);
+
+		/* XXX the protocol id is (or should be) in byte 6 */
+		if (gresb_hdr[5] != RMAP_PROTOCOL_ID)
+			return 0;
 
 		/* tell caller about next packet */
 		return pkt_size;
@@ -530,33 +604,50 @@ static void sync_rmap(void)
 	printf("synced\n\n");
 }
 
+/**
+ *  procedure Test 1: read a basic FEE register
+ *
+ */
+
+static void smile_fee_test1(void)
+{
+	printf("Test1: read a basic FEE register\n");
+
+	printf("sync vstart/vend from FEE\n");
+	smile_fee_sync_vstart(FEE2DPU);
+	sync_rmap();
+
+	printf("vstart: %x, vend %x\n", smile_fee_get_vstart(), smile_fee_get_vend());
+
+	printf("Test1 complete\n\n");
+}
 
 
 /**
- * SMILE FEE commanding demonstrator, this would run on the DPU
- * note: all values are random
+ *  procedure Test 2: read, write & read a basic FEE register
+ *
  */
 
-static void smile_fee_demo(void)
+static void smile_fee_test2(void)
 {
-	printf("sync vstart from FEE\n");
-	smile_fee_sync_vstart(FEE2DPU);
-
+	printf("Test 2: read, write & read a basic FEE register\n");
 
 	printf("sync ccd2 e/f single pixel threshold from FEE\n");
 	smile_fee_sync_ccd2_e_pix_treshold(FEE2DPU);
 
 	sync_rmap();
 
-	printf("ccd2 e value now: %x\n", smile_fee_get_ccd2_e_pix_treshold());
-	printf("ccd2 f value now: %x\n", smile_fee_get_ccd2_f_pix_treshold());
-
-
+	printf("ccd2 e value currently: %x\n", smile_fee_get_ccd2_e_pix_treshold());
+	printf("ccd2 f value currently: %x\n", smile_fee_get_ccd2_f_pix_treshold());
 	printf("setting2 ccd e/f local values\n");
+
 	smile_fee_set_ccd2_e_pix_treshold(0x7b);
 	smile_fee_set_ccd2_f_pix_treshold(0x7c);
 
-	printf("syncing ccd2 e/f single pixel thresold to FEE\n");
+	printf("ccd2 e local value now: %x\n", smile_fee_get_ccd2_e_pix_treshold());
+	printf("ccd2 f local value now: %x\n", smile_fee_get_ccd2_f_pix_treshold());
+
+	printf("syncing ccd2 e/f single pixel threshold to FEE\n");
 	smile_fee_sync_ccd2_e_pix_treshold(DPU2FEE);
 
 	sync_rmap();
@@ -565,7 +656,7 @@ static void smile_fee_demo(void)
 	smile_fee_set_ccd2_e_pix_treshold(0x0);
 	smile_fee_set_ccd2_f_pix_treshold(0x0);
 
-	printf("syncing back ccd2 e/f single pixel thresold from FEE\n");
+	printf("syncing back ccd2 e/f single pixel threshold from FEE\n");
 	smile_fee_sync_ccd2_e_pix_treshold(FEE2DPU);
 
 	sync_rmap();
@@ -573,80 +664,127 @@ static void smile_fee_demo(void)
 	printf("ccd1 value now: %x\n", smile_fee_get_ccd2_e_pix_treshold());
 	printf("ccd2 value now: %x\n", smile_fee_get_ccd2_f_pix_treshold());
 
+	printf("Test2 complete\n\n");
+}
+
+
+/**
+ *  procedure Test 3: Get 6x6 binned pattern images from "Frame Transfer Pattern
+ *  Mode."
+ *
+ */
+
+
+static void smile_fee_test3(void)
+{
+	printf("Test 3: 6x6 binned pattern from frame transfer pattern mode\n");
+
+
+	smile_fee_set_packet_size(0x30c);
+	smile_fee_set_int_period(0x0fa0);
+
+	/* all above are reg4, this will suffice */
+	smile_fee_sync_packet_size(DPU2FEE);
+
+	smile_fee_set_correction_bypass(1);
+	smile_fee_set_digitise(1);
+	smile_fee_set_readout_nodes(3);
+
+	/* all above are reg5, this will suffice */
+	smile_fee_sync_correction_bypass(DPU2FEE);
+
+	smile_fee_set_ccd_mode_config(0x1);
+	smile_fee_set_ccd_mode2_config(0x2);
+
+	/* all above are reg32, this will suffice */
+	smile_fee_sync_ccd_mode_config(DPU2FEE);
+
+	sync_rmap(); /* make sure all parameters are set */
+
+	/* trigger packet transmission */
+	smile_fee_set_execute_op(0x1);
+	smile_fee_sync_execute_op(DPU2FEE);
+
+	sync_rmap();
+
+	while (1)
+	{
+		static int ps = 1;	/* times to print everything... */
+		static int pp = 1;	/* times to print everything... */
+		int n, i;
+		struct fee_data_pkt *pkt;
+		struct fee_pattern  *pat;
+
+		usleep(1000);
+
+		n  = pkt_rx(NULL);
+
+		if (n)
+			pkt = (struct fee_data_pkt *) malloc(n);
+		else
+			continue;
+
+		n = pkt_rx((uint8_t *) pkt);
+
+		if (n <= 0)
+			printf("Error in pkt_rx()\n");
+
+
+		pkt->hdr.data_len   = __be16_to_cpu(pkt->hdr.data_len);
+		pkt->hdr.frame_cntr = __be16_to_cpu(pkt->hdr.frame_cntr);
+		pkt->hdr.seq_cntr   = __be16_to_cpu(pkt->hdr.seq_cntr);
+
+		if (ps) {
+			ps--;
+
+			printf("data type %d len %d frame %d seq %d\n",
+			       pkt->hdr.type.pkt_type,
+			       pkt->hdr.data_len,
+			       pkt->hdr.frame_cntr,
+			       pkt->hdr.seq_cntr);
+		}
+
+		pat = (struct fee_pattern *) &pkt->data;
+		n = pkt->hdr.data_len / sizeof(struct fee_pattern);
+
+		if (pp) {
+			pp--;
+			printf("n %d\n", n);
+			for (i = 0; i < n; i++) {
+				pat[i].pat = __be16_to_cpu(pat[i].pat);
+				printf("%d %d %d %d\n", pat[i].ccd, pat[i].side, pat[i].row, pat[i].col);
+
+			}
+		}
+
+		/* setup abort ... */
+		if (pkt->hdr.seq_cntr == 2555)	/* gen stops about there? */
+			ps = -1;
+
+		free(pkt);
+
+		/* abort ... */
+		if (ps < 0)
+			break;
+	}
+
+	printf("Test3 complete\n\n");
+}
+
+
+/**
+ * SMILE FEE commanding demonstrator, this would run on the DPU
+ */
+
+static void smile_fee_demo(void)
+{
+	smile_fee_test1();
+	smile_fee_test2();
+	smile_fee_test3();
+
 
 	printf("standing by\n");
 	while(1) usleep(1000000); /* stop here for now */
-
-
-	printf("Configuring start of vertical row shared with charge injection\n");
-	smile_fee_set_vstart(35);
-
-	printf("Configuring duration of a parallel overlap period (TOI)\n");
-	smile_fee_set_parallel_toi_period(5);
-
-
-	printf("Syncing configured values to FEE via RMAP\n");
-	smile_fee_sync_vstart(DPU2FEE);
-	smile_fee_sync_parallel_toi_period(DPU2FEE);
-
-	printf("Waiting for sync to complete\n");
-	sync_rmap();
-
-	printf("Verifying configured values in FEE\n");
-
-	printf("Clearing local values\n");
-	smile_fee_set_vstart(0);
-	smile_fee_set_parallel_toi_period(0);
-
-	printf("Syncing configured values from FEE to DPU via RMAP\n");
-	smile_fee_sync_vstart(FEE2DPU);
-	smile_fee_sync_parallel_toi_period(FEE2DPU);
-
-	printf("Waiting for sync to complete\n");
-	sync_rmap();
-
-
-	printf("Checking values: vertical row shared with charge injection: ");
-
-	if (smile_fee_get_vstart() == 35)
-		printf("SUCCESS\n");
-	else
-		printf("FAILURE\n");
-
-
-	printf("Checking values: duration of a parallel overlap period (TOI): ");
-
-	if (smile_fee_get_parallel_toi_period() == 5)
-		printf("SUCCESS\n");
-	else
-		printf("FAILURE\n");
-
-
-	printf("Setting execute op flag to expedite operational parameters\n");
-	smile_fee_set_execute_op(1);
-
-	printf("Syncing execute op flag to FEE via RMAP\n");
-	smile_fee_sync_execute_op(DPU2FEE);
-	printf("Waiting for sync to complete\n");
-	sync_rmap();
-
-
-	printf("Waiting for FEE to complete operation\n");
-
-	while (1) {
-		printf("Syncing execute op flag from FEE to DPU via RMAP\n");
-		smile_fee_sync_execute_op(FEE2DPU);
-		printf("Waiting for sync to complete\n");
-		sync_rmap();
-
-		if (!smile_fee_get_execute_op())
-			break;
-
-		printf("FEE hast not yet completed operation\n");
-	}
-
-
-	printf("FEE operation completed\n");
 }
 
 

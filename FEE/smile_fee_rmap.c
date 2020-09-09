@@ -558,6 +558,7 @@ int smile_fee_package(uint8_t *blob,
 	case RMAP_WRITE_ADDR_INC_VERIFY:
 	case RMAP_WRITE_ADDR_SINGLE_VERIFY_REPLY:
 	case RMAP_WRITE_ADDR_INC_VERIFY_REPLY:
+	case RMAP_WRITE_ADDR_INC_REPLY:
 		has_data_crc = 1;
 		n += 1;
 		break;
@@ -596,8 +597,8 @@ int smile_fee_package(uint8_t *blob,
 		}
 #endif /* __BYTE_ORDER__ */
 
+	blob[cmd_size + 1 + data_size] = rmap_crc8(&blob[cmd_size + 1], data_size);
 
-		blob[cmd_size + 1 + data_size] = rmap_crc8(data, data_size);
 	} else {
 		/* if no data is present, data crc is 0x0 */
 		if (has_data_crc)
