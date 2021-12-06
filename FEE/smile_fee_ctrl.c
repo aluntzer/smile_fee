@@ -14,7 +14,7 @@
  * more details.
  *
  * @brief RMAP SMILE FEE control library
- * @see SMILE-MSSL-PL-Register_map_v0.10_Draft
+ * @see SMILE-MSSL-PL-Register_map_v0.15_Draft
  *
  * USAGE:
  *
@@ -755,8 +755,8 @@ void smile_fee_set_ccd4_vrd_config(uint16_t vrd)
 
 uint16_t smile_fee_get_ccd_vgd_config(void)
 {
-	return (uint16_t) ((smile_fee->cfg_reg_19 >> 28) & 0x3UL)
-			| ((smile_fee->cfg_reg_20 & 0xFFUL) << 3);
+	return (uint16_t) ((smile_fee->cfg_reg_19 >> 28) & 0xFUL)
+			| ((smile_fee->cfg_reg_20 & 0xFFUL) << 4);
 }
 
 /**
@@ -770,11 +770,11 @@ uint16_t smile_fee_get_ccd_vgd_config(void)
 
 void smile_fee_set_ccd_vgd_config(uint16_t vgd)
 {
-	smile_fee->cfg_reg_19 &= ~(0x3UL << 28);
-	smile_fee->cfg_reg_19 |=  (0x3UL & ((uint32_t) vgd)) << 28;
+	smile_fee->cfg_reg_19 &= ~(0xFUL << 28);
+	smile_fee->cfg_reg_19 |=  (0xFUL & ((uint32_t) vgd)) << 28;
 
 	smile_fee->cfg_reg_20 &= ~0xFFUL;
-	smile_fee->cfg_reg_20 |=  0xFFUL & (((uint32_t) vgd) >> 3);
+	smile_fee->cfg_reg_20 |=  0xFFUL & (((uint32_t) vgd) >> 4);
 }
 
 
@@ -907,16 +907,23 @@ uint8_t smile_fee_get_ccd_mode_config(void)
  * @note as per register map document, the following return values
  *	 are currently valid:
  *
- *	 0x0 (On-Mode)
- *	 0x1 (Frame Transfer (FT) Mode Pattern Mode)
- *	 0x2 (Stand-By-Mode)
- *	 0x3 (Frame Transfer Mode(FT))
- *	 0x4 (Full Frame Mode(FF))
- *	 0x5 (Parallel trap pumping mode 1 (FF))
- *	 0x6 (Parallel trap pumping mode 2 (FF))
- *	 0x7 (Serial trap pumping mode 1 (FF))
- *	 0x8 (Serial trap pumping mode 2 (FF))
- *	 0xd (Immediate On-Mode)  (this is a command and not a mode)
+ *	Indicates next mode of operation
+ *	0x0 (On-Mode)
+ *	0x1 (Frame Transfer (FT) Mode Pattern Mode)
+ *	0x2 (Stand-By-Mode)
+ *	0x3 (Frame Transfer Mode(FT))
+ *	0x4 (Full Frame Mode(FF)) 
+ *	0x5 (Reserved)
+ *	0x6 (Reserved)
+ *	0x7 (Reserved)
+ *	0x8 (Immediate On-Mode) *****This is a command and not a mode
+ *	0x9(Full Frame Sim-all rows)
+ *	0xA (Event Detection Sim)
+ *	0xB (Parallel trap pumping mode 1 (FF))
+ *	0xC (Parallel trap pumping mode 2 (FF))
+ *	0xD (Serial trap pumping mode 1 (FF))
+ *	0xE (Serial trap pumping mode 2 (FF))
+ *	0xF (Reserved)
  *
  * @warn input parameter is not checked for validity
  */
@@ -1182,7 +1189,7 @@ uint32_t smile_fee_get_event_pkt_limit(void)
 void smile_fee_set_event_pkt_limit(uint32_t pkt_limit)
 {
 	smile_fee->cfg_reg_24 &= ~(0xFFFFFFUL << 8);
-	smile_fee->cfg_reg_23 |=  (0xFFFFFFUL & ((uint32_t) pkt_limit)) << 8;
+	smile_fee->cfg_reg_24 |=  (0xFFFFFFUL & ((uint32_t) pkt_limit)) << 8;
 }
 
 
@@ -2807,7 +2814,7 @@ void smile_fee_set_hk_fpga_major_version(uint8_t major)
 
 uint16_t smile_fee_get_hk_board_id(void)
 {
-	return (uint16_t) ((smile_fee->hk_reg_35 >> 20) & 0xFUL);
+	return (uint16_t) ((smile_fee->hk_reg_35 >> 12) & 0x1FFUL);
 }
 
 
@@ -2821,8 +2828,8 @@ uint16_t smile_fee_get_hk_board_id(void)
 
 void smile_fee_set_hk_board_id(uint16_t id)
 {
-	smile_fee->hk_reg_35 &= ~(0x1FFUL << 20);
-	smile_fee->hk_reg_35 |=  (0x1FFUL & ((uint32_t) id)) << 20;
+	smile_fee->hk_reg_35 &= ~(0x1FFUL << 12);
+	smile_fee->hk_reg_35 |=  (0x1FFUL & ((uint32_t) id)) << 12;
 }
 #endif /* FEE_SIM */
 

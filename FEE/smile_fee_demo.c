@@ -751,8 +751,7 @@ static void smile_fee_test3(void)
 			pp--;
 			printf("n %d\n", n);
 			for (i = 0; i < n; i++) {
-				pat[i].pat = __be16_to_cpu(pat[i].pat);
-				printf("%d %d %d %d\n", pat[i].ccd, pat[i].side, pat[i].row, pat[i].col);
+				printf("%d %d %d %d %d\n", pat[i].time_code, pat[i].ccd, pat[i].side, pat[i].row, pat[i].col);
 
 			}
 		}

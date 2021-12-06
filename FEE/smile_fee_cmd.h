@@ -22,7 +22,7 @@
 
 #include <stdint.h>
 
-/* FEE RW registers (SMILE-MSSL-PL-Register_map_v0.14_Draft) */
+/* FEE RW registers (SMILE-MSSL-PL-Register_map_v0.15_Draft) */
 
 #define FEE_CFG_REG_0		0x00000000UL
 #define FEE_CFG_REG_1		0x00000004UL
@@ -52,7 +52,7 @@
 #define FEE_CFG_REG_25		0x00000064UL
 
 
-/* FEE  RO registers (SMILE-MSSL-PL-Register_map_v0.14_Draft) */
+/* FEE  RO registers (SMILE-MSSL-PL-Register_map_v0.15_Draft) */
 
 #define FEE_HK_REG_0		0x00000700	/* reserved */
 #define FEE_HK_REG_1		0x00000704	/* reserved */

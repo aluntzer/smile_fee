@@ -597,7 +597,7 @@ int smile_fee_package(uint8_t *blob,
 		}
 #endif /* __BYTE_ORDER__ */
 
-	blob[cmd_size + 1 + data_size] = rmap_crc8(&blob[cmd_size + 1], data_size);
+		blob[cmd_size + 1 + data_size] = rmap_crc8(&blob[cmd_size + 1], data_size);
 
 	} else {
 		/* if no data is present, data crc is 0x0 */

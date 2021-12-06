@@ -33,7 +33,7 @@
 #define FEE_LOGICAL_ADDRESS	0x51
 
 #define RMAP_PROTOCOL_ID	0x01
-#define FEE_DATA_PROTOCOL	0xF0	/* MSSL-IF-95 */
+#define FEE_DATA_PROTOCOL	0xF0	/* MSSL-IF-99 */
 
 
 
@@ -49,13 +49,14 @@
 #define FEE_MODE_ID_STBY	0x2	/* stand-by-mode */
 #define FEE_MODE_ID_FT		0x3	/* frame transfer */
 #define FEE_MODE_ID_FF		0x4	/* full frame */
-#define FEE_MODE_ID_PTP1	0x5	/* parallel trap pump mode 1 */
-#define FEE_MODE_ID_PTP2	0x6	/* parallel trap pump mode 2 */
-#define FEE_MODE_ID_STP1	0x7	/* serial trap pump mode 1 */
-#define FEE_MODE_ID_STP2	0x8	/* serial trap pump mode 2 */
+#define FEE_CMD__ID_IMM_ON	0x8	/* immediate on-mode, this is a command, not a mode */
+#define FEE_MODE_ID_PTP1	0xB	/* parallel trap pump mode 1 */
+#define FEE_MODE_ID_PTP2	0xC	/* parallel trap pump mode 2 */
+#define FEE_MODE_ID_STP1	0xD	/* serial trap pump mode 1 */
+#define FEE_MODE_ID_STP2	0xE	/* serial trap pump mode 2 */
 
 
-/* @see MSSL-SMILE-SXI-IRD-0001, req. MSSL-IF-97 */
+/* @see MSSL-SMILE-SXI-IRD-0001, req. MSSL-IF-101 */
 
 #define FEE_CCD_SIDE_LEFT	0x0	/* side F */
 #define FEE_CCD_SIDE_RIGHT	0x1	/* side E */
@@ -67,10 +68,11 @@
 #define FEE_PKT_TYPE_DATA	0x0	/* any data */
 #define FEE_PKT_TYPE_EV_DET	0x1	/* event detection */
 #define FEE_PKT_TYPE_HK		0x2	/* housekeeping */
+#define FEE_PKT_TYPE_WMASK	0x3	/* wandering mask packet */
 
 
 
-/* @see MSSL-SMILE-SXI-IRD-0001, req. MSSL-IF-97 */
+/* @see MSSL-SMILE-SXI-IRD-0001, req. MSSL-IF-101 */
 struct fee_pkt_type {
 #if (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
 	uint16_t reserved0:4;
@@ -99,7 +101,7 @@ compile_time_assert((sizeof(struct fee_data_hdr)
 #endif
 
 
-/* @see MSSL-SMILE-SXI-IRD-0001, req. MSSL-IF-91 */
+/* @see MSSL-SMILE-SXI-IRD-0001, req. MSSL-IF-95 */
 __extension__
 struct fee_data_hdr {
 	uint8_t logical_addr;
@@ -114,7 +116,7 @@ struct fee_data_hdr {
 } __attribute__((packed));
 
 
-/* @see MSSL-SMILE-SXI-IRD-0001, req. MSSL-IF-91 */
+/* @see MSSL-SMILE-SXI-IRD-0001, req. MSSL-IF-95 */
 #define FEE_EV_COLS		 5
 #define FEE_EV_ROWS		 5
 #define FEE_EV_DET_PIXELS	25	/* 5x5 grid around event pixel */
@@ -141,11 +143,11 @@ struct fee_data_pkt {
 __extension__
 struct fee_pattern {
 	union {
+		uint16_t time_code:3;
 		uint16_t ccd:1;
-		uint16_t side:1;
-		uint16_t row:7;
-		uint16_t col:7;
-		uint16_t pat;
+		uint16_t side:2;
+		uint16_t row:5;
+		uint16_t col:5;
 	};
 
 } __attribute__((packed));
