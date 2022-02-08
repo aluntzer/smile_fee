@@ -680,11 +680,23 @@ static void smile_fee_test3(void)
 	printf("Test 3: 6x6 binned pattern from frame transfer pattern mode\n");
 
 
-	smile_fee_set_packet_size(0x30c);
-	smile_fee_set_int_period(0x0fa0);
+	/* Smile Test Plan Will_SS_V0.1 wants 0x0FA0030A for this register,
+	 * however the packet size must be 10 + bytes where bytes is a
+	 * multiple of 4, so we do that here
+	 */
+	smile_fee_set_packet_size(0x030C);
+	smile_fee_set_int_period(0x0FA0);
 
 	/* all above are reg4, this will suffice */
 	smile_fee_sync_packet_size(DPU2FEE);
+
+
+	/* apparently the reg5 settings are not needed according to
+	 * Smile Test Plan Will_SS_V0.1
+	 * we keeping as it was once indicated per email
+	 * that this was necessary, which appears correct, since digitise
+	 * must be enabled to actually transfer data to the DPU
+	 */
 
 	smile_fee_set_correction_bypass(1);
 	smile_fee_set_digitise_en(1);
@@ -693,7 +705,9 @@ static void smile_fee_test3(void)
 	/* all above are reg5, this will suffice */
 	smile_fee_sync_correction_bypass(DPU2FEE);
 
+	/* frame transfer mode */
 	smile_fee_set_ccd_mode_config(0x1);
+
 	smile_fee_set_ccd_mode2_config(0x2);
 
 	/* all above are reg32, this will suffice */
