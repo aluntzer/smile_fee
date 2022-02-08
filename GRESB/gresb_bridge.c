@@ -533,6 +533,7 @@ int main(int argc, char **argv)
 	link     = DEFAULT_LINK;
 	mode     = SERVER;
 	port     = DEFAULT_PORT;
+	sprintf(url, "%s", DEFAULT_ADDR);
 	sprintf(host, "%s", DEFAULT_ADDR);
 
 	bridge.raw      = 0; /* expect gresb format */
