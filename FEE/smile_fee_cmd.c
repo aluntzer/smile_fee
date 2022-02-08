@@ -311,6 +311,7 @@ int fee_read_cmd_cfg_reg_5(uint16_t trans_id, uint8_t *cmd)
 	return fee_read_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_5);
 }
 
+#if 0
 /**
  * @brief create a command to read the FEE configuration register 6
  *
@@ -325,6 +326,8 @@ int fee_read_cmd_cfg_reg_6(uint16_t trans_id, uint8_t *cmd)
 {
 	return fee_read_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_6);
 }
+
+#endif /* 0 */
 
 /**
  * @brief create a command to read the FEE configuration register 14
@@ -630,7 +633,7 @@ int fee_write_cmd_cfg_reg_5(uint16_t trans_id, uint8_t *cmd)
 	return fee_write_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_5);
 }
 
-
+#if 0
 /**
  * @brief create a command to write the FEE configuration register 6
  *
@@ -645,7 +648,7 @@ int fee_write_cmd_cfg_reg_6(uint16_t trans_id, uint8_t *cmd)
 {
 	return fee_write_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_6);
 }
-
+#endif
 
 /**
  * @brief create a command to write the FEE configuration register 14
