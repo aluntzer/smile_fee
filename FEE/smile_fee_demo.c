@@ -633,36 +633,36 @@ static void smile_fee_test2(void)
 	printf("Test 2: read, write & read a basic FEE register\n");
 
 	printf("sync ccd2 e/f single pixel threshold from FEE\n");
-	smile_fee_sync_ccd2_e_pix_treshold(FEE2DPU);
+	smile_fee_sync_ccd2_e_pix_threshold(FEE2DPU);
 
 	sync_rmap();
 
-	printf("ccd2 e value currently: %x\n", smile_fee_get_ccd2_e_pix_treshold());
-	printf("ccd2 f value currently: %x\n", smile_fee_get_ccd2_f_pix_treshold());
+	printf("ccd2 e value currently: %x\n", smile_fee_get_ccd2_e_pix_threshold());
+	printf("ccd2 f value currently: %x\n", smile_fee_get_ccd2_f_pix_threshold());
 	printf("setting2 ccd e/f local values\n");
 
-	smile_fee_set_ccd2_e_pix_treshold(0x7b);
-	smile_fee_set_ccd2_f_pix_treshold(0x7c);
+	smile_fee_set_ccd2_e_pix_threshold(0x7b);
+	smile_fee_set_ccd2_f_pix_threshold(0x7c);
 
-	printf("ccd2 e local value now: %x\n", smile_fee_get_ccd2_e_pix_treshold());
-	printf("ccd2 f local value now: %x\n", smile_fee_get_ccd2_f_pix_treshold());
+	printf("ccd2 e local value now: %x\n", smile_fee_get_ccd2_e_pix_threshold());
+	printf("ccd2 f local value now: %x\n", smile_fee_get_ccd2_f_pix_threshold());
 
 	printf("syncing ccd2 e/f single pixel threshold to FEE\n");
-	smile_fee_sync_ccd2_e_pix_treshold(DPU2FEE);
+	smile_fee_sync_ccd2_e_pix_threshold(DPU2FEE);
 
 	sync_rmap();
 
 	printf("clearing local values for verification\n");
-	smile_fee_set_ccd2_e_pix_treshold(0x0);
-	smile_fee_set_ccd2_f_pix_treshold(0x0);
+	smile_fee_set_ccd2_e_pix_threshold(0x0);
+	smile_fee_set_ccd2_f_pix_threshold(0x0);
 
 	printf("syncing back ccd2 e/f single pixel threshold from FEE\n");
-	smile_fee_sync_ccd2_e_pix_treshold(FEE2DPU);
+	smile_fee_sync_ccd2_e_pix_threshold(FEE2DPU);
 
 	sync_rmap();
 
-	printf("ccd1 value now: %x\n", smile_fee_get_ccd2_e_pix_treshold());
-	printf("ccd2 value now: %x\n", smile_fee_get_ccd2_f_pix_treshold());
+	printf("ccd1 value now: %x\n", smile_fee_get_ccd2_e_pix_threshold());
+	printf("ccd2 value now: %x\n", smile_fee_get_ccd2_f_pix_threshold());
 
 	printf("Test2 complete\n\n");
 }
@@ -687,8 +687,8 @@ static void smile_fee_test3(void)
 	smile_fee_sync_packet_size(DPU2FEE);
 
 	smile_fee_set_correction_bypass(1);
-	smile_fee_set_digitise(1);
-	smile_fee_set_readout_nodes(3);
+	smile_fee_set_digitise_en(1);
+	smile_fee_set_readout_node_sel(3);
 
 	/* all above are reg5, this will suffice */
 	smile_fee_sync_correction_bypass(DPU2FEE);

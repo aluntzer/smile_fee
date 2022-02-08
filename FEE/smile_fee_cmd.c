@@ -311,6 +311,84 @@ int fee_read_cmd_cfg_reg_5(uint16_t trans_id, uint8_t *cmd)
 	return fee_read_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_5);
 }
 
+/**
+ * @brief create a command to read the FEE configuration register 6
+ *
+ * @param trans_id a transaction identifier
+ *
+ * @param cmd the command buffer; if NULL, the function returns the needed size
+ *
+ * @returns the size of the command data buffer or 0 on error
+ */
+
+int fee_read_cmd_cfg_reg_6(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_read_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_6);
+}
+
+/**
+ * @brief create a command to read the FEE configuration register 14
+ *
+ * @param trans_id a transaction identifier
+ *
+ * @param cmd the command buffer; if NULL, the function returns the needed size
+ *
+ * @returns the size of the command data buffer or 0 on error
+ */
+
+int fee_read_cmd_cfg_reg_14(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_read_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_14);
+}
+
+
+/**
+ * @brief create a command to read the FEE configuration register 15
+ *
+ * @param trans_id a transaction identifier
+ *
+ * @param cmd the command buffer; if NULL, the function returns the needed size
+ *
+ * @returns the size of the command data buffer or 0 on error
+ */
+
+int fee_read_cmd_cfg_reg_15(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_read_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_15);
+}
+
+
+/**
+ * @brief create a command to read the FEE configuration register 16
+ *
+ * @param trans_id a transaction identifier
+ *
+ * @param cmd the command buffer; if NULL, the function returns the needed size
+ *
+ * @returns the size of the command data buffer or 0 on error
+ */
+
+int fee_read_cmd_cfg_reg_16(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_read_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_16);
+}
+
+
+/**
+ * @brief create a command to read the FEE configuration register 17
+ *
+ * @param trans_id a transaction identifier
+ *
+ * @param cmd the command buffer; if NULL, the function returns the needed size
+ *
+ * @returns the size of the command data buffer or 0 on error
+ */
+
+int fee_read_cmd_cfg_reg_17(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_read_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_17);
+}
+
 
 /**
  * @brief create a command to read the FEE configuration register 18
@@ -441,6 +519,23 @@ int fee_read_cmd_cfg_reg_25(uint16_t trans_id, uint8_t *cmd)
 
 
 /**
+ * @brief create a command to read the FEE configuration register 26
+ *
+ * @param trans_id a transaction identifier
+ *
+ * @param cmd the command buffer; if NULL, the function returns the needed size
+ *
+ * @returns the size of the command data buffer or 0 on error
+ */
+
+int fee_read_cmd_cfg_reg_26(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_read_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_26);
+}
+
+
+
+/**
  * @brief create a command to write the FEE configuration register 0
  *
  * @param trans_id a transaction identifier
@@ -533,6 +628,85 @@ int fee_write_cmd_cfg_reg_4(uint16_t trans_id, uint8_t *cmd)
 int fee_write_cmd_cfg_reg_5(uint16_t trans_id, uint8_t *cmd)
 {
 	return fee_write_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_5);
+}
+
+
+/**
+ * @brief create a command to write the FEE configuration register 6
+ *
+ * @param trans_id a transaction identifier
+ *
+ * @param cmd the command buffer; if NULL, the function returns the needed size
+ *
+ * @returns the size of the command data buffer or 0 on error
+ */
+
+int fee_write_cmd_cfg_reg_6(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_write_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_6);
+}
+
+
+/**
+ * @brief create a command to write the FEE configuration register 14
+ *
+ * @param trans_id a transaction identifier
+ *
+ * @param cmd the command buffer; if NULL, the function returns the needed size
+ *
+ * @returns the size of the command data buffer or 0 on error
+ */
+
+int fee_write_cmd_cfg_reg_14(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_write_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_14);
+}
+
+
+/**
+ * @brief create a command to write the FEE configuration register 15
+ *
+ * @param trans_id a transaction identifier
+ *
+ * @param cmd the command buffer; if NULL, the function returns the needed size
+ *
+ * @returns the size of the command data buffer or 0 on error
+ */
+
+int fee_write_cmd_cfg_reg_15(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_write_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_15);
+}
+
+
+/**
+ * @brief create a command to write the FEE configuration register 16
+ *
+ * @param trans_id a transaction identifier
+ *
+ * @param cmd the command buffer; if NULL, the function returns the needed size
+ *
+ * @returns the size of the command data buffer or 0 on error
+ */
+
+int fee_write_cmd_cfg_reg_16(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_write_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_16);
+}
+
+/**
+ * @brief create a command to write the FEE configuration register 17
+ *
+ * @param trans_id a transaction identifier
+ *
+ * @param cmd the command buffer; if NULL, the function returns the needed size
+ *
+ * @returns the size of the command data buffer or 0 on error
+ */
+
+int fee_write_cmd_cfg_reg_17(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_write_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_17);
 }
 
 
@@ -665,18 +839,18 @@ int fee_write_cmd_cfg_reg_25(uint16_t trans_id, uint8_t *cmd)
 
 
 /**
-* @brief create a command to read the FEE HK register 3
-*
-* @param trans_id a transaction identifier
-*
-* @param cmd the command buffer; if NULL, the function returns the needed size
-*
-* @returns the size of the command data buffer or 0 on error
-*/
+ * @brief create a command to write the FEE configuration register 26
+ *
+ * @param trans_id a transaction identifier
+ *
+ * @param cmd the command buffer; if NULL, the function returns the needed size
+ *
+ * @returns the size of the command data buffer or 0 on error
+ */
 
-int fee_read_cmd_hk_reg_3(uint16_t trans_id, uint8_t *cmd)
+int fee_write_cmd_cfg_reg_26(uint16_t trans_id, uint8_t *cmd)
 {
-	return fee_read_cmd_register_internal(trans_id, cmd, FEE_HK_REG_3);
+	return fee_write_cmd_register_internal(trans_id, cmd, FEE_CFG_REG_26);
 }
 
 
@@ -741,6 +915,54 @@ int fee_read_cmd_hk_reg_6(uint16_t trans_id, uint8_t *cmd)
 int fee_read_cmd_hk_reg_7(uint16_t trans_id, uint8_t *cmd)
 {
 	return fee_read_cmd_register_internal(trans_id, cmd, FEE_HK_REG_7);
+}
+
+
+/**
+* @brief create a command to read the FEE HK register 8
+*
+* @param trans_id a transaction identifier
+*
+* @param cmd the command buffer; if NULL, the function returns the needed size
+*
+* @returns the size of the command data buffer or 0 on error
+*/
+
+int fee_read_cmd_hk_reg_8(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_read_cmd_register_internal(trans_id, cmd, FEE_HK_REG_8);
+}
+
+
+/**
+* @brief create a command to read the FEE HK register 9
+*
+* @param trans_id a transaction identifier
+*
+* @param cmd the command buffer; if NULL, the function returns the needed size
+*
+* @returns the size of the command data buffer or 0 on error
+*/
+
+int fee_read_cmd_hk_reg_9(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_read_cmd_register_internal(trans_id, cmd, FEE_HK_REG_9);
+}
+
+
+/**
+* @brief create a command to read the FEE HK register 10
+*
+* @param trans_id a transaction identifier
+*
+* @param cmd the command buffer; if NULL, the function returns the needed size
+*
+* @returns the size of the command data buffer or 0 on error
+*/
+
+int fee_read_cmd_hk_reg_10(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_read_cmd_register_internal(trans_id, cmd, FEE_HK_REG_10);
 }
 
 
@@ -953,22 +1175,6 @@ int fee_read_cmd_hk_reg_23(uint16_t trans_id, uint8_t *cmd)
 
 
 /**
-* @brief create a command to read the FEE HK register 27
-*
-* @param trans_id a transaction identifier
-*
-* @param cmd the command buffer; if NULL, the function returns the needed size
-*
-* @returns the size of the command data buffer or 0 on error
-*/
-
-int fee_read_cmd_hk_reg_27(uint16_t trans_id, uint8_t *cmd)
-{
-	return fee_read_cmd_register_internal(trans_id, cmd, FEE_HK_REG_27);
-}
-
-
-/**
 * @brief create a command to read the FEE HK register 28
 *
 * @param trans_id a transaction identifier
@@ -1093,4 +1299,36 @@ int fee_read_cmd_hk_reg_34(uint16_t trans_id, uint8_t *cmd)
 int fee_read_cmd_hk_reg_35(uint16_t trans_id, uint8_t *cmd)
 {
 	return fee_read_cmd_register_internal(trans_id, cmd, FEE_HK_REG_35);
+}
+
+
+/**
+* @brief create a command to read the FEE HK register 36
+*
+* @param trans_id a transaction identifier
+*
+* @param cmd the command buffer; if NULL, the function returns the needed size
+*
+* @returns the size of the command data buffer or 0 on error
+*/
+
+int fee_read_cmd_hk_reg_36(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_read_cmd_register_internal(trans_id, cmd, FEE_HK_REG_36);
+}
+
+
+/**
+* @brief create a command to read the FEE HK register 37
+*
+* @param trans_id a transaction identifier
+*
+* @param cmd the command buffer; if NULL, the function returns the needed size
+*
+* @returns the size of the command data buffer or 0 on error
+*/
+
+int fee_read_cmd_hk_reg_37(uint16_t trans_id, uint8_t *cmd)
+{
+	return fee_read_cmd_register_internal(trans_id, cmd, FEE_HK_REG_37);
 }
