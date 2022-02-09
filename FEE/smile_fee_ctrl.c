@@ -517,41 +517,6 @@ void smile_fee_set_sync_sel(uint32_t mode)
 
 
 /**
- * @brief get the readout node(s) from which read-out is performed
- *
- * @returns 0x1 if read-out via F-side
- *          0x2 if read-out via E-side
- *          0x3 if read-out via both F- and E-side
- */
-
-uint16_t smile_fee_get_readout_node_sel(void)
-{
-	return (uint16_t) ((smile_fee->cfg_reg_5 >> 21) & 0x3UL);
-}
-
-
-/**
- * @brief set the readout node(s) from which read-out is performed
- *
- * @param nodes set 0x1 for read-out via F-side,
- *		    0x2 if read-out via E-side,
- *		    0x3 if read-out via both F- and E-side
- */
-
-void smile_fee_set_readout_node_sel(uint32_t nodes)
-{
-	if (!nodes)
-		return;
-
-	if (nodes > 3)
-		return;
-
-	smile_fee->cfg_reg_5 &= ~(0x3UL << 21);
-	smile_fee->cfg_reg_5 |=  (0x3UL & nodes) << 21;
-}
-
-
-/**
  * @brief get digitise mode
  *
  * @returns 1 if digitise data is transferred to DPU during an image mode,
@@ -725,7 +690,40 @@ void smile_fee_set_edu_wandering_mask_en(uint32_t mode)
 	smile_fee->cfg_reg_5 |=  (mode  << 27);
 }
 
-/* XXX readout_node_sel second register? */
+
+/**
+ * @brief get the readout node(s) from which read-out is performed
+ *
+ * @returns 0x5 if read-out via CCD4 F-side and CCD2 F-side
+ *	    0x6 if read-out via CCD4 F-side and CCD2 E-side
+ *	    0x9 if read-out via CCD4 E-side and CCD2 E-side
+ *	    0xF if read-out via CCD4 E&F-side and CCD2 E&F-side
+ */
+
+uint16_t smile_fee_get_readout_node_sel(void)
+{
+	return (uint16_t) ((smile_fee->cfg_reg_5 >> 28) & 0xFUL);
+}
+
+
+/**
+ * @brief set the readout node(s) from which read-out is performed
+ *
+ * @returns 0x5 if read-out via CCD4 F-side and CCD2 F-side
+ *	    0x6 if read-out via CCD4 F-side and CCD2 E-side
+ *	    0x9 if read-out via CCD4 E-side and CCD2 E-side
+ *	    0xF if read-out via CCD4 E&F-side and CCD2 E&F-side
+ */
+
+void smile_fee_set_readout_node_sel(uint32_t nodes)
+{
+	if (!nodes)
+		return;
+
+	smile_fee->cfg_reg_5 &= ~(0xFUL << 28);
+	smile_fee->cfg_reg_5 |=  (0xFUL & nodes) << 28;
+}
+
 
 /**
  * @brief get ccd2_vod_config
