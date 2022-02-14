@@ -144,18 +144,23 @@ __extension__
 struct fee_pattern {
 	union {
 #if (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
-		uint16_t time_code:3;
-		uint16_t ccd:1;
-		uint16_t side:2;
-		uint16_t row:5;
-		uint16_t col:5;
+		struct {
+			uint16_t time_code:3;
+			uint16_t ccd:1;
+			uint16_t side:2;
+			uint16_t row:5;
+			uint16_t col:5;
+		};
 #elif (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-		uint16_t col:5;
-		uint16_t row:5;
-		uint16_t side:2;
-		uint16_t ccd:1;
-		uint16_t time_code:3;
+		struct {
+			uint16_t col:5;
+			uint16_t row:5;
+			uint16_t side:2;
+			uint16_t ccd:1;
+			uint16_t time_code:3;
+		};
 #endif
+		uint16_t field;
 	};
 
 } __attribute__((packed));

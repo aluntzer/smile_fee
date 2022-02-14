@@ -445,6 +445,18 @@ static uint32_t pkt_rx(uint8_t *pkt)
 	recv_bytes  = recv(bridge_fd, recv_buffer, pkt_size + 4, 0);
 
 
+	if (0){
+		int i;
+
+		printf("\nRAW DUMP (%d bytes):\n", recv_bytes);
+
+		for (i=0 ;i < recv_bytes; i++)
+			printf("%02x ", recv_buffer[i]);
+		printf("END DUMP\n\n");
+	}
+
+
+
 	/* the caller supplied their own buffer */
 	memcpy(pkt, gresb_get_spw_data(recv_buffer), pkt_size);
 	free(recv_buffer);
@@ -684,9 +696,13 @@ static void smile_fee_test3(void)
 	 * however the packet size must be 10 + bytes where bytes is a
 	 * multiple of 4, so we do that here
 	 */
+#if 0
 	smile_fee_set_packet_size(0x030C);
 	smile_fee_set_int_period(0x0FA0);
-
+#else
+	smile_fee_set_packet_size(0x030A);
+	smile_fee_set_int_period(0x0FA0);
+#endif
 	/* all above are reg4, this will suffice */
 	smile_fee_sync_packet_size(DPU2FEE);
 
@@ -697,11 +713,11 @@ static void smile_fee_test3(void)
 	 * that this was necessary, which appears correct, since digitise
 	 * must be enabled to actually transfer data to the DPU
 	 */
-
+#if 1
 	smile_fee_set_correction_bypass(1);
 	smile_fee_set_digitise_en(1);
-	smile_fee_set_readout_node_sel(3);
-
+	smile_fee_set_readout_node_sel(0xF);
+#endif
 	/* all above are reg5, this will suffice */
 	smile_fee_sync_correction_bypass(DPU2FEE);
 
@@ -744,35 +760,50 @@ static void smile_fee_test3(void)
 			printf("Error in pkt_rx()\n");
 
 
-		pkt->hdr.data_len   = __be16_to_cpu(pkt->hdr.data_len);
-		pkt->hdr.frame_cntr = __be16_to_cpu(pkt->hdr.frame_cntr);
-		pkt->hdr.seq_cntr   = __be16_to_cpu(pkt->hdr.seq_cntr);
+		pkt->hdr.data_len	= __be16_to_cpu(pkt->hdr.data_len);
+		pkt->hdr.fee_pkt_type   = __be16_to_cpu(pkt->hdr.fee_pkt_type);
+		pkt->hdr.frame_cntr	= __be16_to_cpu(pkt->hdr.frame_cntr);
+		pkt->hdr.seq_cntr	= __be16_to_cpu(pkt->hdr.seq_cntr);
 
 		if (ps) {
 			ps--;
 
-			printf("data type %d len %d frame %d seq %d\n",
+			printf("data type %d %x len %d frame %d seq %d last: %d side %d id %d fee_mode %d\n",
 			       pkt->hdr.type.pkt_type,
+			       pkt->hdr.fee_pkt_type &0x3,
 			       pkt->hdr.data_len,
 			       pkt->hdr.frame_cntr,
-			       pkt->hdr.seq_cntr);
+			       pkt->hdr.seq_cntr,
+			       pkt->hdr.type.last_pkt,
+			       pkt->hdr.type.ccd_side,
+			       pkt->hdr.type.ccd_id,
+			       pkt->hdr.type.fee_mode);
 		}
 
-		pat = (struct fee_pattern *) &pkt->data;
-		n = pkt->hdr.data_len / sizeof(struct fee_pattern);
+		if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_DATA) {
 
-		if (pp) {
-			pp--;
-			printf("n %d\n", n);
-			for (i = 0; i < n; i++) {
-				printf("%d %d %d %d %d\n", pat[i].time_code, pat[i].ccd, pat[i].side, pat[i].row, pat[i].col);
+			pat = (struct fee_pattern *) &pkt->data;
+			n = pkt->hdr.data_len / sizeof(struct fee_pattern);
 
+			if (pp) {
+				pp--;
+				printf("n %d\n", n);
+				for (i = 0; i < n; i++) {
+					printf("TC:%02x CCD:%02x SIDE:%02x ROW:%02x COL:%02x RAW: %04x\n",
+					       pat[i].time_code, pat[i].ccd, pat[i].side,
+					       pat[i].row, pat[i].col, pat[i].field );
+				}
 			}
-		}
 
-		/* setup abort ... */
-		if (pkt->hdr.seq_cntr == 2555)	/* gen stops about there? */
-			ps = -1;
+			/* setup abort ... */
+			if (pkt->hdr.seq_cntr == 2555)	/* gen stops about there? */
+				ps = -1;
+		}
+		else if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_HK)
+			printf("This is HK data, not printing\n");
+		else
+			printf("unknown type %d\n", pkt->hdr.fee_pkt_type );
+
 
 		free(pkt);
 
@@ -791,10 +822,11 @@ static void smile_fee_test3(void)
 
 static void smile_fee_demo(void)
 {
+#if 1
 	smile_fee_test1();
 	smile_fee_test2();
+#endif
 	smile_fee_test3();
-
 
 	printf("standing by\n");
 	while(1) usleep(1000000); /* stop here for now */
@@ -816,6 +848,7 @@ int main(void)
 
 	setsockopt(bridge_fd, IPPROTO_TCP, TCP_NODELAY, (void *) &flag, sizeof(int));
 
+	//server.sin_addr.s_addr = inet_addr("131.130.51.17");
 	server.sin_addr.s_addr = inet_addr("127.0.0.1");
 	server.sin_family = AF_INET;
 	server.sin_port = htons(1234);
