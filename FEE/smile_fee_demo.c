@@ -26,6 +26,8 @@
 #include <sys/socket.h>
 #include <linux/tcp.h>
 
+#include <sys/time.h>
+
 #include <gresb.h>
 
 #include <smile_fee.h>
@@ -198,6 +200,8 @@ static void rmap_sim_rx(uint8_t *pkt)
 			break;
 
 		case RMAP_WRITE_ADDR_INC_VERIFY_REPLY:
+
+			/* note that we don't do verification */
 #ifdef DEBUG
 			printf("RMAP_WRITE_ADDR_INC_VERIFY_REPLY\n");
 			printf("write to addr: %x, size %d \n", rp->addr, rp->data_len);
@@ -211,8 +215,23 @@ static void rmap_sim_rx(uint8_t *pkt)
 			rp->data_len = 0; /* no data in reply */
 
 			break;
+
+		case RMAP_WRITE_ADDR_INC_REPLY:
+#ifdef DEBUG
+			printf("RMAP_WRITE_ADDR_INC_REPLY\n");
+			printf("write to addr: %x, size %d \n", rp->addr, rp->data_len);
+#endif
+			/* copy the payload into the simulated register
+			 * map. This works because the register map in the FEE
+			 * starts at address 0x0
+			 */
+			memcpy((&((uint8_t *) &smile_fee_mem)[rp->addr]), rp->data, rp->data_len);
+
+			rp->data_len = 0; /* no data in reply */
+
+			break;
 		default:
-			printf("rmap command not implemented: %x\n", rp->ri.cmd);
+			printf("rmap command code not implemented: %x\n", rp->ri.cmd);
 			break;
 	}
 
@@ -445,7 +464,7 @@ static uint32_t pkt_rx(uint8_t *pkt)
 	recv_bytes  = recv(bridge_fd, recv_buffer, pkt_size + 4, 0);
 
 
-	if (0){
+	if (1){
 		int i;
 
 		printf("\nRAW DUMP (%d bytes):\n", recv_bytes);
@@ -617,130 +636,104 @@ static void sync_rmap(void)
 }
 
 /**
- *  procedure Test 1: read a basic FEE register
+ *  procedure Test 1: Smile Test Plan Will_SS_V0.1 Verification No 1
+ *
+ *  in On-Mode, configure FT pattern mode, binning at 6x6, packet size 778
+ *  all other parameters left at default
+ *
+ *  once, configured, set execute_op
+ *
+ *  expected reply: HK, followed by pattern data
  *
  */
+
 
 static void smile_fee_test1(void)
 {
-	printf("Test1: read a basic FEE register\n");
+	struct timeval t0, t;
+	double elapsed_time;
 
-	printf("sync vstart/vend from FEE\n");
-	smile_fee_sync_vstart(FEE2DPU);
+	printf("Test 1: 6x6 binned pattern from frame transfer pattern mode\n");
+
+
+	/* update local configuration of all used registers
+	 * note: we naively issue syncs for all the register field names
+	 * as we use them; many of these are actually part of the same
+	 * register, but this way, we don't have to know and just
+	 * create a few more RMAP transfers.
+	 */
+	smile_fee_sync_packet_size(FEE2DPU);
+	smile_fee_sync_int_period(FEE2DPU);
+	smile_fee_sync_readout_node_sel(FEE2DPU);
+	smile_fee_sync_ccd_mode_config(FEE2DPU);
+	smile_fee_sync_readout_node_sel(FEE2DPU);
+	smile_fee_sync_ccd_mode_config(FEE2DPU);
+	smile_fee_sync_ccd_mode2_config(FEE2DPU);
+	smile_fee_sync_execute_op(FEE2DPU);
+
+	/* flush all pending transfers */
 	sync_rmap();
 
-	printf("vstart: %x, vend %x\n", smile_fee_get_vstart(), smile_fee_get_vend());
 
-	printf("Test1 complete\n\n");
-}
+	/* packet size = 778 */
+	smile_fee_set_packet_size(0x030A);
 
+	/* derived from reg. value specified in test plan */
+	smile_fee_set_int_period(0x0FA0);
 
-/**
- *  procedure Test 2: read, write & read a basic FEE register
- *
- */
-
-static void smile_fee_test2(void)
-{
-	printf("Test 2: read, write & read a basic FEE register\n");
-
-	printf("sync ccd2 e/f single pixel threshold from FEE\n");
-	smile_fee_sync_ccd2_e_pix_threshold(FEE2DPU);
-
-	sync_rmap();
-
-	printf("ccd2 e value currently: %x\n", smile_fee_get_ccd2_e_pix_threshold());
-	printf("ccd2 f value currently: %x\n", smile_fee_get_ccd2_f_pix_threshold());
-	printf("setting2 ccd e/f local values\n");
-
-	smile_fee_set_ccd2_e_pix_threshold(0x7b);
-	smile_fee_set_ccd2_f_pix_threshold(0x7c);
-
-	printf("ccd2 e local value now: %x\n", smile_fee_get_ccd2_e_pix_threshold());
-	printf("ccd2 f local value now: %x\n", smile_fee_get_ccd2_f_pix_threshold());
-
-	printf("syncing ccd2 e/f single pixel threshold to FEE\n");
-	smile_fee_sync_ccd2_e_pix_threshold(DPU2FEE);
-
-	sync_rmap();
-
-	printf("clearing local values for verification\n");
-	smile_fee_set_ccd2_e_pix_threshold(0x0);
-	smile_fee_set_ccd2_f_pix_threshold(0x0);
-
-	printf("syncing back ccd2 e/f single pixel threshold from FEE\n");
-	smile_fee_sync_ccd2_e_pix_threshold(FEE2DPU);
-
-	sync_rmap();
-
-	printf("ccd1 value now: %x\n", smile_fee_get_ccd2_e_pix_threshold());
-	printf("ccd2 value now: %x\n", smile_fee_get_ccd2_f_pix_threshold());
-
-	printf("Test2 complete\n\n");
-}
-
-
-/**
- *  procedure Test 3: Get 6x6 binned pattern images from "Frame Transfer Pattern
- *  Mode."
- *
- */
-
-
-static void smile_fee_test3(void)
-{
-	printf("Test 3: 6x6 binned pattern from frame transfer pattern mode\n");
-
-
-	/* Smile Test Plan Will_SS_V0.1 wants 0x0FA0030A for this register,
-	 * however the packet size must be 10 + bytes where bytes is a
-	 * multiple of 4, so we do that here
+	/*
+	 * these should not be needed as they are the default configuration;
+	 * enable in case of no transfer
+	 * (digitise must be enabled to actually transfer data to the DPU)
 	 */
 #if 0
-	smile_fee_set_packet_size(0x030C);
-	smile_fee_set_int_period(0x0FA0);
-#else
-	smile_fee_set_packet_size(0x030A);
-	smile_fee_set_int_period(0x0FA0);
-#endif
-	/* all above are reg4, this will suffice */
-	smile_fee_sync_packet_size(DPU2FEE);
-
-
-	/* apparently the reg5 settings are not needed according to
-	 * Smile Test Plan Will_SS_V0.1
-	 * we keeping as it was once indicated per email
-	 * that this was necessary, which appears correct, since digitise
-	 * must be enabled to actually transfer data to the DPU
-	 */
-#if 1
 	smile_fee_set_correction_bypass(1);
 	smile_fee_set_digitise_en(1);
-	smile_fee_set_readout_node_sel(0xF);
 #endif
-	/* all above are reg5, this will suffice */
-	smile_fee_sync_correction_bypass(DPU2FEE);
+	/* this is not explicitly specified in the test, but all nodes
+	 * must be set, otherwise no pattern is generated (known bug (?))
+	 */
+	smile_fee_set_readout_node_sel(0xF);
 
-	/* frame transfer mode */
+
+	/* set frame transfer pattern mode */
 	smile_fee_set_ccd_mode_config(0x1);
 
+	/* set 6x6 binning */
 	smile_fee_set_ccd_mode2_config(0x2);
 
-	/* all above are reg32, this will suffice */
+
+
+	/* same as above, just use the _sync_ calls for the
+	 * particular fields
+	 */
+	smile_fee_sync_packet_size(DPU2FEE);
+	smile_fee_sync_int_period(DPU2FEE);
+	smile_fee_sync_readout_node_sel(DPU2FEE);
 	smile_fee_sync_ccd_mode_config(DPU2FEE);
+	smile_fee_sync_readout_node_sel(DPU2FEE);
+	smile_fee_sync_ccd_mode_config(DPU2FEE);
+	smile_fee_sync_ccd_mode2_config(DPU2FEE);
 
-	sync_rmap(); /* make sure all parameters are set */
+	/* flush all pending transfers */
+	sync_rmap();
 
-	/* trigger packet transmission */
+
+	/* now trigger the operation, we do this in a separate transfer */
 	smile_fee_set_execute_op(0x1);
 	smile_fee_sync_execute_op(DPU2FEE);
 
-	sync_rmap();
+	sync_rmap();	/* flush */
+
+	/* for our (approximate) transfer time profile */
+	gettimeofday(&t0, NULL);
 
 	while (1)
 	{
-		static int ps = 1;	/* times to print everything... */
-		static int pp = 1;	/* times to print everything... */
+		static int ps = 1;
+		static int pp = 1;
+		static int pckt_type_seq_cnt;
+
 		int n, i;
 		struct fee_data_pkt *pkt;
 		struct fee_pattern  *pat;
@@ -760,6 +753,12 @@ static void smile_fee_test3(void)
 			printf("Error in pkt_rx()\n");
 
 
+		gettimeofday(&t, NULL);
+
+		/* time in ms since execute_op */
+		elapsed_time  = (t.tv_sec  - t0.tv_sec)  * 1000.0;
+		elapsed_time += (t.tv_usec - t0.tv_usec) / 1000.0;
+
 		pkt->hdr.data_len	= __be16_to_cpu(pkt->hdr.data_len);
 		pkt->hdr.fee_pkt_type   = __be16_to_cpu(pkt->hdr.fee_pkt_type);
 		pkt->hdr.frame_cntr	= __be16_to_cpu(pkt->hdr.frame_cntr);
@@ -768,7 +767,7 @@ static void smile_fee_test3(void)
 		if (ps) {
 			ps--;
 
-			printf("data type %d %x len %d frame %d seq %d last: %d side %d id %d fee_mode %d\n",
+			printf("data type %d %x len %d frame %d seq %d last: %d side %d id %d fee_mode %d time %g ms\n",
 			       pkt->hdr.type.pkt_type,
 			       pkt->hdr.fee_pkt_type &0x3,
 			       pkt->hdr.data_len,
@@ -777,7 +776,8 @@ static void smile_fee_test3(void)
 			       pkt->hdr.type.last_pkt,
 			       pkt->hdr.type.ccd_side,
 			       pkt->hdr.type.ccd_id,
-			       pkt->hdr.type.fee_mode);
+			       pkt->hdr.type.fee_mode,
+			       elapsed_time);
 		}
 
 		if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_DATA) {
@@ -795,14 +795,29 @@ static void smile_fee_test3(void)
 				}
 			}
 
-			/* setup abort ... */
-			if (pkt->hdr.seq_cntr == 2555)	/* gen stops about there? */
-				ps = -1;
+
 		}
 		else if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_HK)
 			printf("This is HK data, not printing\n");
 		else
 			printf("unknown type %d\n", pkt->hdr.fee_pkt_type );
+
+
+		/* dunno if change of "Table 8-12 Packetised FT mode
+		 * sequence counter" is already implmented;
+		 * in this case, the packet types transmitted would be
+		 * HK, E2, F2, E4, F4, each terminated with the bit
+		 * set high. Note that this implies that we have to
+		 * check the particular readout mode; since
+		 * currently all sides/ccds are (and must be) selected
+		 * in this transfer (see above), this means that we get
+		 * a total of 5 "last_pkt" bits set hi
+		 */
+		if (pkt->hdr.type.last_pkt) {
+			printf("LAST_PCKT: %g ms\n", elapsed_time);
+			if (pckt_type_seq_cnt++ >= 4)
+				ps = -1;	/* set loop abort */
+		}
 
 
 		free(pkt);
@@ -812,8 +827,10 @@ static void smile_fee_test3(void)
 			break;
 	}
 
-	printf("Test3 complete\n\n");
+	printf("Test1 complete\n\n");
 }
+
+
 
 
 /**
@@ -822,11 +839,7 @@ static void smile_fee_test3(void)
 
 static void smile_fee_demo(void)
 {
-#if 1
 	smile_fee_test1();
-	smile_fee_test2();
-#endif
-	smile_fee_test3();
 
 	printf("standing by\n");
 	while(1) usleep(1000000); /* stop here for now */
