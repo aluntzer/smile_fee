@@ -62,8 +62,8 @@
 #define FEE_CCD_SIDE_RIGHT	0x1	/* side E */
 #define FEE_CCD_INTERLEAVED	0x2	/* F and E inverleaved */
 
-#define FEE_CDD_ID_2		0x0
-#define FEE_CDD_ID_4		0x1
+#define FEE_CCD_ID_2		0x0
+#define FEE_CCD_ID_4		0x1
 
 #define FEE_PKT_TYPE_DATA	0x0	/* any data */
 #define FEE_PKT_TYPE_EV_DET	0x1	/* event detection */
@@ -137,7 +137,7 @@ struct fee_event_dection {
 __extension__
 struct fee_data_pkt {
 	struct fee_data_hdr hdr;
-	uint8_t *data;
+	uint8_t data[];
 } __attribute__((packed));
 
 __extension__
