@@ -26,21 +26,25 @@
 
 
 /**
- *  @see MSSL-SMILE-SXI-IRD-0001
+ *  @see MSSL-SMILE-SXI-IRD-0001 Draft A.14
+ *
+ *  @warn be aware that requirement numbering can randomly change between
+ *	  versions of the IRD, they appear to be a generated sequence
+ *	  rather than explicitly entered identifiers
  */
 
 #define DPU_LOGICAL_ADDRESS	0x50
 #define FEE_LOGICAL_ADDRESS	0x51
 
 #define RMAP_PROTOCOL_ID	0x01
-#define FEE_DATA_PROTOCOL	0xF0	/* MSSL-IF-99 */
+#define FEE_DATA_PROTOCOL	0xF0	/* Draft A.14,  MSSL-IF-106 */
 
 
 
 /**
  * FEE modes
  *
- * @see MSSL-SMILE-SXI-IRD-0001, req. MSSL-IF-17
+ * @see MSSL-SMILE-SXI-IRD-0001  Draft A.14, req. MSSL-IF-17
  */
 
 
@@ -55,11 +59,21 @@
 #define FEE_MODE_ID_STP1	0xD	/* serial trap pump mode 1 */
 #define FEE_MODE_ID_STP2	0xE	/* serial trap pump mode 2 */
 
+#define FEE_MODE2_NOBIN		0x1	/* no binning mode */
+#define FEE_MODE2_BIN6		0x2	/* 6x6 binning mode */
+#define FEE_MODE2_BIN24		0x3	/* 24x4 binning mode */
 
-/* @see MSSL-SMILE-SXI-IRD-0001, req. MSSL-IF-101 */
+/* these identifiy the bits in the readout node selection register */
+#define FEE_READOUT_NODE_E2	0b0010
+#define FEE_READOUT_NODE_F2	0b0001
+#define FEE_READOUT_NODE_E4	0b1000
+#define FEE_READOUT_NODE_F4	0b0100
 
-#define FEE_CCD_SIDE_LEFT	0x0	/* side F */
-#define FEE_CCD_SIDE_RIGHT	0x1	/* side E */
+
+/* @see MSSL-SMILE-SXI-IRD-0001 Draft A.14, req. MSSL-IF-108 */
+
+#define FEE_CCD_SIDE_F	0x0		/* left side */
+#define FEE_CCD_SIDE_E	0x1		/* right side */
 #define FEE_CCD_INTERLEAVED	0x2	/* F and E inverleaved */
 
 #define FEE_CCD_ID_2		0x0
@@ -72,7 +86,7 @@
 
 
 
-/* @see MSSL-SMILE-SXI-IRD-0001, req. MSSL-IF-101 */
+/* @see MSSL-SMILE-SXI-IRD-0001 Draft A.14, req. MSSL-IF-108 */
 struct fee_pkt_type {
 #if (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
 	uint16_t reserved0:4;
@@ -101,7 +115,7 @@ compile_time_assert((sizeof(struct fee_data_hdr)
 #endif
 
 
-/* @see MSSL-SMILE-SXI-IRD-0001, req. MSSL-IF-95 */
+/* @see MSSL-SMILE-SXI-IRD-0001 Draft A.14, req. MSSL-IF-103, MSSL-IF-108 */
 __extension__
 struct fee_data_hdr {
 	uint8_t logical_addr;
@@ -111,12 +125,12 @@ struct fee_data_hdr {
 		uint16_t fee_pkt_type;
 		struct fee_pkt_type type;
 	};
-	uint16_t frame_cntr;
-	uint16_t seq_cntr;
+	uint16_t frame_cntr;	/* increments per-frame, see Draft A.14 MSSL-IF-109 */
+	uint16_t seq_cntr;	/* packet seq. in frame transfer, see Draft A.14 MSSL-IF-110 */
 } __attribute__((packed));
 
 
-/* @see MSSL-SMILE-SXI-IRD-0001, req. MSSL-IF-95 */
+/* @see MSSL-SMILE-SXI-IRD-0001 Draft A.14, req. MSSL-IF-102 */
 #define FEE_EV_COLS		 5
 #define FEE_EV_ROWS		 5
 #define FEE_EV_DET_PIXELS	25	/* 5x5 grid around event pixel */
@@ -132,6 +146,33 @@ struct fee_event_dection {
 	uint16_t pix[FEE_EV_DET_PIXELS];
 
 } __attribute__((packed));
+
+
+
+/**
+ * number of pixels of the CCD image sections per side of the CCD
+ *
+ * the pixel sized of the 6x6 binned (=science mode) images consist of
+ * visible pixels plus overscan, as the nominal rows/cols
+ * do not divide to full integers in binned mode
+ *
+ * there is no (formal) mention of 24x24 binning mode in the IRD, the
+ * values below are just a guess based on the shape of the CCD and the
+ * number of samples in pattern mode re returned by the FEE
+ *
+ *
+ * @see SSL-SMILE-SXI-IRD-0001 Draft A.14:
+ *		fig. 6-1, 6-3
+ *		MSSL-IF-38
+ */
+
+#define FEE_CCD_IMG_SEC_ROWS		3791
+#define FEE_CCD_IMG_SEC_COLS		2255
+#define FEE_EDU_FRAME_6x6_ROWS		639
+#define FEE_EDU_FRAME_6x6_COLS		384
+#define FEE_EDU_FRAME_24x24_ROWS	160
+#define FEE_EDU_FRAME_24x24_COLS	 99
+
 
 
 __extension__
@@ -163,6 +204,20 @@ struct fee_pattern {
 		uint16_t field;
 	};
 
+} __attribute__((packed));
+
+
+/**
+ * The HK packet structure is completely undocumented. All I currently
+ * know is that it uses the same header as a data packet and contains
+ * 144 payload bytes as of Feb. 23. 2022
+ */
+
+#define FEE_HK_PACKET_DATA_LEN	144
+
+__extension__
+struct fee_hk_data_payload {
+	uint8_t hk[144];
 } __attribute__((packed));
 
 

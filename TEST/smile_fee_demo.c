@@ -35,8 +35,6 @@
 #include <smile_fee_ctrl.h>
 #include <smile_fee_rmap.h>
 
-#include <rmap.h>	/* for FEE simulation */
-
 /* whatever for now ... */
 #define MAX_PAYLOAD_SIZE	4096
 
@@ -46,298 +44,6 @@
 
 int bridge_fd;
 
-
-/* for our simulated fee, you can use the accessor part of the library and
- * the stuff below to to control you own FEE simulator
- */
-static struct smile_fee_mirror smile_fee_mem;
-
-static uint8_t *rmap_sim_reply[64]; /* same number of buffers as trans log size */
-static int rmap_sim_reply_size[64]; /* buffer sizes */
-/**
- * @brief create a complete package from header and payload data including CRC8
- *
- * @note this is a helper function to generate complete binary RMAP packet dumps
- *
- * @param blob the blob buffer; if NULL, the function returns the needed size
- *
- * @param[in]  cmd an rmap command buffer
- * @param[in]  cmd_size the size of the rmap command buffer
- * @param[in]  non_crc_bytes leading bytes in the header not path of the CRC
- * @param[in]  data a data buffer (may be NULL)
- * @param[in]  data_size the size of the data buffer (ignored if data is NULL)
- *
- * @returns the size of the blob or 0 on error
- */
-
-int fee_sim_package(uint8_t *blob,
-		    const uint8_t *cmd,  int cmd_size,
-		    const uint8_t non_crc_bytes,
-		    const uint8_t *data, int data_size)
-{
-	int n;
-	int has_data_crc = 0;
-	struct rmap_instruction *ri;
-
-
-
-	if (!cmd_size) {
-		blob = NULL;
-		return 0;
-	}
-
-
-	/* allocate space for header, header crc, data, data crc */
-	n = cmd_size + 1;
-
-	ri = (struct rmap_instruction *) &cmd[non_crc_bytes + RMAP_INSTRUCTION];
-
-	/* see if the type of command needs a data crc field at the end */
-	switch (ri->cmd) {
-	case RMAP_READ_ADDR_SINGLE:
-	case RMAP_READ_ADDR_INC:
-		has_data_crc = 1;
-		n += 1;
-		break;
-	default:
-		break;
-	}
-
-
-	if (data)
-		n += data_size;
-
-	if (!blob)
-		return n;
-
-
-	memcpy(&blob[0], cmd, cmd_size);
-
-	blob[cmd_size] = rmap_crc8(&cmd[non_crc_bytes],
-				   cmd_size - non_crc_bytes);
-
-	if (data) {
-		memcpy(&blob[cmd_size + 1], data, data_size);
-		blob[cmd_size + 1 + data_size] = rmap_crc8(data, data_size);
-	} else {
-		/* if no data is present, data crc is 0x0 */
-		if (has_data_crc)
-			blob[cmd_size + 1] = 0x0;
-	}
-
-
-	return n;
-}
-
-/* simulate FEE receiving data */
-__attribute__((unused))
-static void rmap_sim_rx(uint8_t *pkt)
-{
-	int i, n;
-
-	uint8_t src;
-
-	uint8_t *hdr;
-	uint8_t *data = NULL;
-
-	int hdr_size;
-	int data_size = 0;
-
-	struct rmap_pkt *rp;
-
-
-
-	rp = rmap_pkt_from_buffer(pkt);
-
-	if (!rp) {
-		printf("conversion error!");
-		exit(0);
-	}
-
-
-	/* The rmap libary does not implement client mode, so we do the
-	 * basics here.
-	 * At the moment, we only use
-	 *	RMAP_READ_ADDR_INC and
-	 *	RMAP_WRITE_ADDR_INC_VERIFY_REPLY,
-	 * because we only implemented the config registers, so this is pretty
-	 * easy
-	 */
-
-
-	/* we reuse the packet, turn it into a response */
-	rp->ri.cmd_resp = 0;
-
-	/* WARNING: path addressing requires extra steps (leading zero removal),
-	 * this not done because it's unused in this demo
-	 */
-
-	/* flip around logical addresses */
-	src = rp->src;
-	rp->src = rp->dst;
-	rp->dst = src;
-
-	switch (rp->ri.cmd) {
-		case RMAP_READ_ADDR_INC:
-#ifdef DEBUG
-			printf("RMAP_READ_ADDR_INC\n");
-			printf("read from addr: %x, size %d \n", rp->addr, rp->data_len);
-#endif
-			data = malloc(rp->data_len);
-			if (!data) {
-				printf("error allocating buffer\n");
-				exit(0);
-			}
-
-			data_size = rp->data_len;
-
-			/* copy the simulated register map into the data payload
-			 * This works because the register map in the FEE
-			 * starts at address 0x0
-			 */
-			memcpy(data, (&((uint8_t *) &smile_fee_mem)[rp->addr]), data_size);
-
-			break;
-
-		case RMAP_WRITE_ADDR_INC_VERIFY_REPLY:
-
-			/* note that we don't do verification */
-#ifdef DEBUG
-			printf("RMAP_WRITE_ADDR_INC_VERIFY_REPLY\n");
-			printf("write to addr: %x, size %d \n", rp->addr, rp->data_len);
-#endif
-			/* copy the payload into the simulated register
-			 * map. This works because the register map in the FEE
-			 * starts at address 0x0
-			 */
-			memcpy((&((uint8_t *) &smile_fee_mem)[rp->addr]), rp->data, rp->data_len);
-
-			rp->data_len = 0; /* no data in reply */
-
-			break;
-
-		case RMAP_WRITE_ADDR_INC_REPLY:
-#ifdef DEBUG
-			printf("RMAP_WRITE_ADDR_INC_REPLY\n");
-			printf("write to addr: %x, size %d \n", rp->addr, rp->data_len);
-#endif
-			/* copy the payload into the simulated register
-			 * map. This works because the register map in the FEE
-			 * starts at address 0x0
-			 */
-			memcpy((&((uint8_t *) &smile_fee_mem)[rp->addr]), rp->data, rp->data_len);
-
-			rp->data_len = 0; /* no data in reply */
-
-			break;
-		default:
-			printf("rmap command code not implemented: %x\n", rp->ri.cmd);
-			break;
-	}
-
-	/* convert packet to buffer */
-
-	/* determine header size */
-	hdr_size = rmap_build_hdr(rp, NULL);
-
-	hdr = malloc(hdr_size);
-	if (!hdr) {
-		printf("Error allocating memory\n");
-		exit(0);
-	}
-
-	rmap_build_hdr(rp, hdr);
-
-	rmap_erase_packet(rp);
-
-
-	/* convert to blob and store in our reply array */
-
-	for (i = 0; i < 64; i++)  {
-		if (!rmap_sim_reply[i])
-			break; /* found unused slot */
-	}
-
-	if (i > 64) {
-		printf("Error, out of transmit slots\n");
-		exit(0);
-	}
-
-
-	/* determine required buffer size
-	 * WARNING non-crc bytes are hardcoded to 0 since we do not use path
-	 * addressing in this demo
-	 */
-	n = fee_sim_package(NULL, hdr, hdr_size, 0,
-			    data, data_size);
-
-	rmap_sim_reply[i] = malloc(n);
-	rmap_sim_reply_size[i] = n;
-
-	if (!rmap_sim_reply[i]) {
-		printf("Error allcating blob!\n");
-		exit(0);
-	}
-
-	/* copy packet data to buffer */
-	smile_fee_package(rmap_sim_reply[i], hdr, hdr_size, 0,
-			  data, data_size);
-
-}
-
-
-/* simulate FEE sending data */
-__attribute__((unused))
-static int rmap_sim_tx(uint8_t *pkt)
-{
-	int i;
-	int size;
-	static int last = 65; /* out of bounds */
-
-
-	/* simulate some activity here by clearing the execute op flag if it
-	 * is set.
-	 */
-
-	if (smile_fee_mem.cfg_reg_24 & 0x1UL) {
-		smile_fee_mem.cfg_reg_24 &= ~0x1UL;
-	}
-
-
-	/* actual tx simulation */
-
-	if (last > 64) {
-
-		for (i = 0; i < 64; i++)  {
-			if (rmap_sim_reply[i])
-				break; /* found used slot */
-		}
-
-		if (i >= 64)
-			return 0;
-
-		last = i; /* our current reply packet */
-
-	}
-
-	/* was only a size request */
-	if (!pkt)
-		return rmap_sim_reply_size[last];
-
-	/* now deliver contents */
-	size = rmap_sim_reply_size[last];
-	memcpy(pkt, rmap_sim_reply[last], size);
-
-	free(rmap_sim_reply[last]);
-
-	/* mark slot as unused */
-	rmap_sim_reply[last] = NULL;
-
-	/* reset to ouf of bounds */
-	last = 65;
-
-	return size;
-}
 
 
 /**
@@ -362,7 +68,7 @@ static int32_t rmap_tx(const void *hdr,  uint32_t hdr_size,
 	int pkt_size;
 	uint8_t *blob;
 
-	uint8_t *gresb_pkt __attribute__((unused));
+	uint8_t *gresb_pkt;
 
 	/* determine required buffer size */
 	pkt_size = smile_fee_package(NULL, hdr, hdr_size, non_crc_bytes,
@@ -379,11 +85,6 @@ static int32_t rmap_tx(const void *hdr,  uint32_t hdr_size,
 	pkt_size = smile_fee_package(blob, hdr, hdr_size, non_crc_bytes,
 				     data, data_size);
 
-#ifdef FEE_SIM
-
-	/* "send" to FEE */
-	rmap_sim_rx(blob);
-#else
 
 	/* encapsulate in GRESB packet and send */
 	gresb_pkt = gresb_create_host_data_pkt(blob, pkt_size);
@@ -397,7 +98,6 @@ static int32_t rmap_tx(const void *hdr,  uint32_t hdr_size,
 
 
 	free(blob);
-#endif
 
 #if 0
 	/* adapt to IASW like this */
@@ -417,6 +117,7 @@ static int32_t rmap_tx(const void *hdr,  uint32_t hdr_size,
 static uint32_t pkt_rx(uint8_t *pkt)
 {
 	int recv_bytes;
+	int recv_left;
 	static uint32_t pkt_size; /* keep last packet size */
 
 	/* XXX: gresb-to-host header is just 4 bytes, but we need 2 extra in
@@ -437,18 +138,20 @@ static uint32_t pkt_rx(uint8_t *pkt)
 		recv_bytes = recv(bridge_fd, gresb_hdr, 6, MSG_PEEK | MSG_DONTWAIT);
 
 		/* we won't bother, this is a stupid demo, not production code */
-		if (recv_bytes <= 0)
+		if (recv_bytes <= 0)  {
 			return 0;
+		}
 
 		/* header is 4 bytes, but we need 6 */
-		if (recv_bytes < (4 + 2))
+		if (recv_bytes < (4 + 2)) {
 			return 0;
-
-		pkt_size = gresb_get_spw_data_size(gresb_hdr);
+		}
 
 		/* XXX the protocol id is (or should be) in byte 6 */
-		if (gresb_hdr[5] != FEE_DATA_PROTOCOL)
-			return 0;
+		if (gresb_hdr[5] == FEE_DATA_PROTOCOL)
+			pkt_size = gresb_get_spw_data_size(gresb_hdr);
+		else	/* not what we want, ignore */
+			pkt_size = 0;
 
 		/* tell caller about next packet */
 		return pkt_size;
@@ -461,13 +164,20 @@ static uint32_t pkt_rx(uint8_t *pkt)
 	/* buffer is payload + header */
 	recv_buffer = malloc(pkt_size + 4);
 
-	recv_bytes  = recv(bridge_fd, recv_buffer, pkt_size + 4, 0);
+	recv_bytes = 0;
+	recv_left  = pkt_size + 4;
+	while (recv_left) {
+		int rb;
+		rb = recv(bridge_fd, recv_buffer + recv_bytes, recv_left, 0);
+		recv_bytes += rb;
+		recv_left  -= rb;
+	}
 
 
-	if (1){
+	if (0) {
 		int i;
 
-		printf("\nRAW DUMP (%d bytes):\n", recv_bytes);
+		printf("\nRAW DUMP (%d/%d bytes):\n", recv_bytes, pkt_size);
 
 		for (i=0 ;i < recv_bytes; i++)
 			printf("%02x ", recv_buffer[i]);
@@ -477,10 +187,10 @@ static uint32_t pkt_rx(uint8_t *pkt)
 
 
 	/* the caller supplied their own buffer */
-	memcpy(pkt, gresb_get_spw_data(recv_buffer), pkt_size);
+	memcpy(pkt, gresb_get_spw_data(recv_buffer), recv_bytes);
 	free(recv_buffer);
 
-	return pkt_size;
+	return recv_bytes;
 
 }
 
@@ -502,6 +212,7 @@ static uint32_t rmap_rx(uint8_t *pkt)
 	return rmap_sim_tx(pkt);
 #else
 	int recv_bytes;
+	int recv_left;
 	static uint32_t pkt_size; /* keep last packet size */
 
 	/* XXX: gresb-to-host header is just 4 bytes, but we need 2 extra in
@@ -529,11 +240,11 @@ static uint32_t rmap_rx(uint8_t *pkt)
 		if (recv_bytes < (4 + 2))
 			return 0;
 
-		pkt_size = gresb_get_spw_data_size(gresb_hdr);
-
 		/* XXX the protocol id is (or should be) in byte 6 */
-		if (gresb_hdr[5] != RMAP_PROTOCOL_ID)
-			return 0;
+		if (gresb_hdr[5] == RMAP_PROTOCOL_ID)
+			pkt_size = gresb_get_spw_data_size(gresb_hdr);
+		else
+			pkt_size = 0;
 
 		/* tell caller about next packet */
 		return pkt_size;
@@ -546,14 +257,21 @@ static uint32_t rmap_rx(uint8_t *pkt)
 	/* buffer is payload + header */
 	recv_buffer = malloc(pkt_size + 4);
 
-	recv_bytes  = recv(bridge_fd, recv_buffer, pkt_size + 4, 0);
+	recv_bytes = 0;
+	recv_left  = pkt_size + 4;
+	while (recv_left) {
+		int rb;
+		rb = recv(bridge_fd, recv_buffer + recv_bytes, recv_left, 0);
+		recv_bytes += rb;
+		recv_left  -= rb;
+	}
 
 
 	/* the caller supplied their own buffer */
-	memcpy(pkt, gresb_get_spw_data(recv_buffer), pkt_size);
+	memcpy(pkt, gresb_get_spw_data(recv_buffer), recv_bytes);
 	free(recv_buffer);
 
-	return pkt_size;
+	return recv_bytes;
 #endif
 
 
@@ -700,7 +418,7 @@ static void smile_fee_test1(void)
 	smile_fee_set_ccd_mode_config(0x1);
 
 	/* set 6x6 binning */
-	smile_fee_set_ccd_mode2_config(0x2);
+	smile_fee_set_ccd_mode2_config(0x3);
 
 
 
@@ -730,8 +448,8 @@ static void smile_fee_test1(void)
 
 	while (1)
 	{
-		static int ps = 1;
-		static int pp = 1;
+		static int ps = 5000;
+		static int pp = 0;
 		static int pckt_type_seq_cnt;
 
 		int n, i;
@@ -787,7 +505,6 @@ static void smile_fee_test1(void)
 
 			if (pp) {
 				pp--;
-				printf("n %d\n", n);
 				for (i = 0; i < n; i++) {
 					printf("TC:%02x CCD:%02x SIDE:%02x ROW:%02x COL:%02x RAW: %04x\n",
 					       pat[i].time_code, pat[i].ccd, pat[i].side,
@@ -796,11 +513,13 @@ static void smile_fee_test1(void)
 			}
 
 
-		}
-		else if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_HK)
-			printf("This is HK data, not printing\n");
-		else
+		} else if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_HK) {
+			if (ps)
+				printf("This is HK data, not printing\n");
+
+		} else {
 			printf("unknown type %d\n", pkt->hdr.fee_pkt_type );
+		}
 
 
 		/* dunno if change of "Table 8-12 Packetised FT mode
@@ -814,7 +533,7 @@ static void smile_fee_test1(void)
 		 * a total of 5 "last_pkt" bits set hi
 		 */
 		if (pkt->hdr.type.last_pkt) {
-			printf("LAST_PCKT: %g ms\n", elapsed_time);
+			printf("LAST_PCKT: %g ms, size %d\n", elapsed_time, pkt->hdr.data_len);
 			if (pckt_type_seq_cnt++ >= 4)
 				ps = -1;	/* set loop abort */
 		}
@@ -852,7 +571,7 @@ int main(void)
 	uint8_t dpath[] = DPATH;
 	uint8_t rpath[] = RPATH;
 
-#if !defined (FEE_SIM)
+
 	int flag = 1;
 	struct sockaddr_in server;
 
@@ -874,7 +593,6 @@ int main(void)
 
 	/* set non-blocking so we can recv() easily */
 	fcntl(bridge_fd, F_SETFL, fcntl(bridge_fd, F_GETFL, 0) | O_NONBLOCK);
-#endif
 
 	/* initialise the libraries */
 	smile_fee_ctrl_init(NULL);

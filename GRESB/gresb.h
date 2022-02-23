@@ -13,7 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- * @brief GRESP protocol interface
+ * @brief GRESB protocol interface
  */
 
 #ifndef GRESB_H
@@ -48,15 +48,15 @@
 
 
 /**
- * host to GRESP protocol ids
+ * host to GRESB protocol ids
  *
  * @see GRESB-UM v1.5.14, pp. 8
  */
 
-#define GRESP_FROM_HOST_DATA		0
-#define GRESP_FROM_HOST_SET_CFG		1
-#define GRESP_FROM_HOST_GET_CFG		2
-#define GRESP_FROM_HOST_SEND_TIME	3
+#define GRESB_FROM_HOST_DATA		0
+#define GRESB_FROM_HOST_SET_CFG		1
+#define GRESB_FROM_HOST_GET_CFG		2
+#define GRESB_FROM_HOST_SEND_TIME	3
 
 
 __extension__

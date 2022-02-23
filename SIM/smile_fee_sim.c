@@ -37,8 +37,10 @@
 #include <smile_fee_cfg.h>
 #include <smile_fee_ctrl.h>
 #include <smile_fee_rmap.h>
+#include <fee_sim.h>
 
 #include <rmap.h>	/* for FEE simulation */
+
 
 
 
@@ -59,27 +61,10 @@ static struct smile_fee_mirror smile_fee_mem;
 
 
 
-
 #define DEFAULT_LINK 0
 #define DEFAULT_PORT 1234
 #define DEFAULT_ADDR "0.0.0.0"
 
-int bridge_fd;	/* XXX Remove */
-
-struct sim_net_cfg {
-
-	int socket;
-
-	int n_fd;
-	fd_set set;
-
-	pthread_t thread_accept;
-	pthread_t thread_poll;
-
-	int  raw;	/* if set, use raw bytes on user ports,
-			 * otherwise we expect gresb packet format
-			 */
-};
 
 
 static void rmap_sim_rx(uint8_t *pkt, struct sim_net_cfg *cfg);
@@ -296,6 +281,7 @@ static void *accept_connections(void *data)
 static int sim_rx(int fd, struct sim_net_cfg *cfg)
 {
 	ssize_t recv_bytes;
+	ssize_t recv_left;
 	unsigned char *recv_buffer;
 	ssize_t pkt_size;
 
@@ -311,7 +297,7 @@ static int sim_rx(int fd, struct sim_net_cfg *cfg)
 	} else {
 
 		/* try to grab a header */
-		recv_bytes = recv(fd, gresb_hdr, 4, MSG_PEEK);
+		recv_bytes = recv(fd, gresb_hdr, 4, MSG_PEEK | MSG_DONTWAIT);
 		if (recv_bytes < 4)
 			return 0;
 
@@ -322,7 +308,17 @@ static int sim_rx(int fd, struct sim_net_cfg *cfg)
 		pkt_size = gresb_get_spw_data_size(gresb_hdr) + 4;
 		recv_buffer = malloc(pkt_size);
 
-		recv_bytes  = recv(fd, recv_buffer, pkt_size, 0);
+
+		/* pull in the whole packet */
+		recv_bytes = 0;
+		recv_left  = pkt_size ;
+		while (recv_left) {
+			ssize_t rb;
+			rb = recv(fd, recv_buffer + recv_bytes, recv_left, 0);
+			recv_bytes += rb;
+			recv_left  -= rb;
+		}
+
 	}
 
 	if (recv_bytes <= 0)
@@ -338,40 +334,9 @@ static int sim_rx(int fd, struct sim_net_cfg *cfg)
 	}
 #endif
 
-	if (cfg->raw) {
-#if 0
-		gresb_pkt = gresb_create_host_data_pkt(recv_buffer, recv_bytes);
 
-		if (!gresb_pkt) {
-			printf("error creating packet\n");
-			exit(EXIT_FAILURE);
-		}
-
-		/* we SEND to the TX port */
-		ret = send_all(cfg->gresb_tx->socket, gresb_pkt,
-			       gresb_get_host_data_pkt_size(gresb_pkt));
-		if (ret == -1)
-			perror("send");
-
-
-		gresb_destroy_host_data_pkt((struct host_to_gresb_pkt *) gresb_pkt);
-#endif
-
-	} else {
-#if 0
-
-		ret = send_all(cfg->gresb_tx->socket, recv_buffer, recv_bytes);
-		if (ret == -1)
-			perror("send");
-#endif
-	}
 
 	rmap_sim_rx((uint8_t *) gresb_get_spw_data(recv_buffer), cfg);
-
-#if 0
-	do_rmap_rx_here;
-#endif
-
 
 cleanup:
 	free(recv_buffer);
@@ -684,6 +649,10 @@ static void rmap_sim_rx(uint8_t *pkt, struct sim_net_cfg *cfg)
 }
 
 
+/**
+ * @brief function to send non-rmap data packets going to the DPU
+ */
+
 void fee_send_non_rmap(struct sim_net_cfg *cfg, uint8_t *buf, size_t n)
 {
 	uint8_t *gresb_pkt;
@@ -694,138 +663,6 @@ void fee_send_non_rmap(struct sim_net_cfg *cfg, uint8_t *buf, size_t n)
 	distribute_tx(cfg, gresb_pkt, gresb_get_host_data_pkt_size(gresb_pkt));
 
 	gresb_destroy_host_data_pkt((struct host_to_gresb_pkt *) gresb_pkt);
-}
-
-
-
-
-void fee_sim_exec(struct sim_net_cfg *cfg)
-{
-	int i;
-	size_t tx_size;
-	struct fee_data_pkt *pkt;
-
-	/* now run the simulator */
-
-	while (1) {
-
-		if (smile_fee_get_execute_op()) {
-			printf("EXECUTE OP!\n");
-
-			printf("packet size 0x%X\n", smile_fee_get_packet_size());
-			printf("int period 0x%X\n", smile_fee_get_int_period());
-			printf("int period 0x%X\n", smile_fee_get_int_period());
-			printf("readout node sel 0x%X\n", smile_fee_get_readout_node_sel());
-			printf("ccd mode config 0x%X\n", smile_fee_get_ccd_mode_config());
-			printf("ccd mode2 config 0x%X\n", smile_fee_get_ccd_mode2_config());
-
-
-			tx_size = sizeof(struct fee_data_hdr) + smile_fee_get_packet_size();
-			pkt = (struct fee_data_pkt * ) malloc(tx_size);
-
-
-			/* setup destination and type */
-			pkt->hdr.logical_addr = DPU_LOGICAL_ADDRESS;
-			pkt->hdr.proto_id = FEE_DATA_PROTOCOL;
-
-
-			pkt->hdr.data_len = __cpu_to_be16(smile_fee_get_packet_size());
-
-			/* fake some data payload */
-			for (i = 0; i < smile_fee_get_packet_size(); i++)
-				pkt->data[i] = i & 0xff;
-
-
-
-			/* hk is always first in sequence of FT mode */
-			pkt->hdr.type.pkt_type = FEE_PKT_TYPE_HK;
-			/* always on, we only transfer a single frame in a sequence */
-			pkt->hdr.type.last_pkt = 1;
-			/* swap type field to correct byte order */
-			pkt->hdr.fee_pkt_type = __be16_to_cpu(pkt->hdr.fee_pkt_type);
-			pkt->hdr.frame_cntr   = __be16_to_cpu(0);
-			pkt->hdr.seq_cntr     = __be16_to_cpu(0);
-
-			/* send */
-			fee_send_non_rmap(cfg, (uint8_t *) pkt, tx_size);
-
-			/* now E2 */
-			pkt->hdr.type.pkt_type = FEE_PKT_TYPE_DATA;
-			pkt->hdr.type.ccd_side = FEE_CCD_SIDE_RIGHT;	/* side E */
-			pkt->hdr.type.ccd_id   = FEE_CCD_ID_2;		/* CCD 2 */
-			pkt->hdr.type.fee_mode = FEE_MODE_ID_FTP;
-			/* always on, we only transfer a single frame in a sequence */
-			pkt->hdr.type.last_pkt = 1;
-			/* swap type field to correct byte order */
-			pkt->hdr.fee_pkt_type = __be16_to_cpu(pkt->hdr.fee_pkt_type);
-			pkt->hdr.frame_cntr   = __be16_to_cpu(0);	/* no idea? */
-			pkt->hdr.seq_cntr     = __be16_to_cpu(1);	/* increment */
-
-			/* send */
-			fee_send_non_rmap(cfg, (uint8_t *) pkt, tx_size);
-
-			/* now F2 */
-			pkt->hdr.type.pkt_type = FEE_PKT_TYPE_DATA;
-			pkt->hdr.type.ccd_side = FEE_CCD_SIDE_LEFT;	/* side F */
-			pkt->hdr.type.ccd_id   = FEE_CCD_ID_2;		/* CCD 2 */
-			pkt->hdr.type.fee_mode = FEE_MODE_ID_FTP;
-			/* always on, we only transfer a single frame in a sequence */
-			pkt->hdr.type.last_pkt = 1;
-			/* swap type field to correct byte order */
-			pkt->hdr.fee_pkt_type = __be16_to_cpu(pkt->hdr.fee_pkt_type);
-			pkt->hdr.frame_cntr   = __be16_to_cpu(0);	/* no idea? */
-			pkt->hdr.seq_cntr     = __be16_to_cpu(2);	/* increment */
-
-			/* send */
-			fee_send_non_rmap(cfg, (uint8_t *) pkt, tx_size);
-
-			/* now E4 */
-			pkt->hdr.type.pkt_type = FEE_PKT_TYPE_DATA;
-			pkt->hdr.type.ccd_side = FEE_CCD_SIDE_RIGHT;	/* side E */
-			pkt->hdr.type.ccd_id   = FEE_CCD_ID_2;		/* CCD 4 */
-			pkt->hdr.type.fee_mode = FEE_MODE_ID_FTP;
-			/* always on, we only transfer a single frame in a sequence */
-			pkt->hdr.type.last_pkt = 1;
-			/* swap type field to correct byte order */
-			pkt->hdr.fee_pkt_type = __be16_to_cpu(pkt->hdr.fee_pkt_type);
-			pkt->hdr.frame_cntr   = __be16_to_cpu(0);	/* no idea? */
-			pkt->hdr.seq_cntr     = __be16_to_cpu(3);	/* increment */
-
-			/* send */
-			fee_send_non_rmap(cfg, (uint8_t *) pkt, tx_size);
-
-			/* now F4 */
-			pkt->hdr.type.pkt_type = FEE_PKT_TYPE_DATA;
-			pkt->hdr.type.ccd_side = FEE_CCD_SIDE_LEFT;	/* side F */
-			pkt->hdr.type.ccd_id   = FEE_CCD_ID_2;		/* CCD 4 */
-			pkt->hdr.type.fee_mode = FEE_MODE_ID_FTP;
-			/* always on, we only transfer a single frame in a sequence */
-			pkt->hdr.type.last_pkt = 1;
-			/* swap type field to correct byte order */
-			pkt->hdr.fee_pkt_type = __be16_to_cpu(pkt->hdr.fee_pkt_type);
-			pkt->hdr.frame_cntr   = __be16_to_cpu(0);	/* no idea? */
-			pkt->hdr.seq_cntr     = __be16_to_cpu(4);	/* increment */
-
-			/* send */
-			fee_send_non_rmap(cfg, (uint8_t *) pkt, tx_size);
-
-			/* end of nominal transfer sequence as of
-			 * MSSL-SMILE-SXI-IRD-0001 draft 0.14
-			 */
-
-			free(pkt);
-
-			/* clear flag, op complete */
-			smile_fee_set_execute_op(0);
-
-			}
-
-		/* poll every 1 ms */
-		usleep(1000);
-	}
-
-
-
 }
 
 
@@ -950,9 +787,8 @@ int main(int argc, char **argv)
 	/* initialise the FEE libraries */
 	smile_fee_ctrl_init(&smile_fee_mem);
 
-
-	fee_sim_exec(&sim_net);	/* should make this a thread */
-
+	/* main simulator */
+	fee_sim_main(&sim_net);	/* should make this a thread */
 
 
 	/**

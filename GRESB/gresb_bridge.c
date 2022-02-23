@@ -237,6 +237,7 @@ static int usr_pkt_to_gresb(int fd, struct bridge_cfg *cfg)
 {
 	int ret;
 	ssize_t recv_bytes;
+	ssize_t recv_left;
 	uint8_t *gresb_pkt;
 	unsigned char *recv_buffer;
 	ssize_t pkt_size;
@@ -264,7 +265,14 @@ static int usr_pkt_to_gresb(int fd, struct bridge_cfg *cfg)
 		pkt_size = gresb_get_spw_data_size(gresb_hdr) + 4;
 		recv_buffer = malloc(pkt_size);
 
-		recv_bytes  = recv(fd, recv_buffer, pkt_size, 0);
+		recv_bytes = 0;
+		recv_left  = pkt_size;
+		while (recv_left) {
+			ssize_t rb;
+			rb = recv(fd, recv_buffer + recv_bytes, recv_left, 0);
+			recv_bytes += rb;
+			recv_left  -= rb;
+		}
 	}
 
 	if (recv_bytes <= 0)

@@ -13,7 +13,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- * @brief GRESP protocol interface
+ * @brief GRESB protocol interface
  *
  */
 
@@ -40,10 +40,10 @@ static int gresb_host_pkt_set_protocol(struct host_to_gresb_pkt *pkt,
 		return -1;
 
 	switch (protocol) {
-	case GRESP_FROM_HOST_DATA:
-	case GRESP_FROM_HOST_SET_CFG:
-	case GRESP_FROM_HOST_GET_CFG:
-	case GRESP_FROM_HOST_SEND_TIME:
+	case GRESB_FROM_HOST_DATA:
+	case GRESB_FROM_HOST_SET_CFG:
+	case GRESB_FROM_HOST_GET_CFG:
+	case GRESB_FROM_HOST_SEND_TIME:
 		pkt->protocol = protocol;
 		break;
 	default:
@@ -71,7 +71,7 @@ static int gresb_host_pkt_set_data_size(struct host_to_gresb_pkt *pkt,
 	if (!pkt)
 		return -1;
 
-	if (pkt->protocol != GRESP_FROM_HOST_DATA)
+	if (pkt->protocol != GRESB_FROM_HOST_DATA)
 		return -1;
 
 	/* byte order is big endian */
@@ -96,7 +96,7 @@ static size_t gresb_host_pkt_get_data_size(struct host_to_gresb_pkt *pkt)
 {
 	size_t n = 0;
 
-	if (pkt->protocol == GRESP_FROM_HOST_DATA) {
+	if (pkt->protocol == GRESB_FROM_HOST_DATA) {
 
 		n  = (pkt->size[0] << 16) & 0xff0000;
 		n |= (pkt->size[1] <<  8) & 0x00ff00;
@@ -143,7 +143,7 @@ uint8_t *gresb_create_host_data_pkt(const uint8_t *data, uint32_t len)
 	if (!pkt)
 		return NULL;
 
-	gresb_host_pkt_set_protocol(pkt, GRESP_FROM_HOST_DATA);
+	gresb_host_pkt_set_protocol(pkt, GRESB_FROM_HOST_DATA);
 	gresb_host_pkt_set_data_size(pkt, len);
 
 	if (data)
