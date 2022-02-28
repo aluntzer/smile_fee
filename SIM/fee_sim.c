@@ -34,10 +34,17 @@
 #include <byteorder.h>
 
 
+static uint16_t *ccd2_e;
+static uint16_t *ccd2_f;
+static uint16_t *ccd4_e;
+static uint16_t *ccd4_f;
+
+
 struct fee_data_payload {
 	struct fee_data_pkt *pkt;
 	size_t data_len_max;
 };
+
 
 
 static void fee_sim_destroy_hk_data_payload(struct fee_hk_data_payload *hk)
@@ -431,6 +438,156 @@ static void fee_sim_frame_transfer(struct sim_net_cfg *cfg,  uint8_t fee_mode,
 
 
 /**
+ * @brief extract ccd data for frame transfer mode
+ */
+
+static uint16_t *fee_sim_get_ft_data(uint16_t *ccd, size_t rows, size_t cols,
+				     size_t bins)
+{
+	size_t i, j;
+	size_t x, y;
+	size_t rw, cl;
+
+	uint16_t *buf;
+	uint16_t *acc;
+
+
+	/* we need a cleared buffer to accumulate the bins */
+	buf = calloc(sizeof(uint16_t), rows * cols);
+	if (!buf) {
+		perror("malloc");
+		exit(-1);
+	}
+
+	if (bins == 1) {
+		memcpy(buf, ccd, rows * cols * sizeof(uint16_t));
+		return buf;
+	}
+
+	/* our accumulator */
+	acc = malloc(FEE_CCD_IMG_SEC_COLS * sizeof(uint16_t));
+	if (!acc) {
+		perror("malloc");
+		exit(-1);
+	}
+
+
+	/* the binned data contain overscan in the real FEE, i.e. the "edge"
+	 * pixels contain CCD bias values, but we just ignore those
+	 * and round down to the next integer
+	 * note that we keep the nominal size, we just don't fill the
+	 * out-of-bounds samples with values
+	 */
+	rw = FEE_CCD_IMG_SEC_ROWS / bins;
+	cl = FEE_CCD_IMG_SEC_COLS / bins;
+
+
+	/* rebinned rows */
+	for (y = 0; y < rw; y++) {
+
+		/* clear line accumulator */
+		memset(acc, 0x0, FEE_CCD_IMG_SEC_COLS * sizeof(uint16_t));
+
+		/* accumulate the data lines in "blocks" of bins */
+		for (i = 0; i < bins; i++) {
+
+			/* the offset into the buffer of the start of the
+			 * next row; note that the original number of rows
+			 * is required, otherwise the data would be skewed
+			 */
+			size_t y0 = y *  FEE_CCD_IMG_SEC_COLS + i * rows;
+
+			for (j = 0; j < FEE_CCD_IMG_SEC_COLS; j++) {
+				acc[j] += ccd[y0 + j];
+			}
+
+		}
+
+		/* accumulate blocks of bins into columns */
+		for (x = 0; x < cl; x++) {
+
+			for (i = 0; i < bins; i++)
+				buf[y * cols + x] += acc[x * bins + i];
+
+		}
+
+	}
+
+
+	free(acc);
+
+	return buf;
+}
+
+
+static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
+{
+	uint16_t *E2 = NULL;
+	uint16_t *F2 = NULL;
+	uint16_t *E4 = NULL;
+	uint16_t *F4 = NULL;
+
+	size_t rows, cols, bins;
+	uint16_t readout;
+
+
+	switch (smile_fee_get_ccd_mode2_config()) {
+
+	case FEE_MODE2_NOBIN:
+		rows = FEE_CCD_IMG_SEC_ROWS;
+		cols = FEE_CCD_IMG_SEC_COLS;
+		bins = 1;
+		break;
+
+	case FEE_MODE2_BIN6:
+		rows = FEE_EDU_FRAME_6x6_ROWS;
+		cols = FEE_EDU_FRAME_6x6_COLS;
+		bins = 6;
+		break;
+
+	case FEE_MODE2_BIN24:
+		/* values are guessed base on returned data from FEE, the
+		 * actual size is not mentioned in the IRD
+		 * it is unclear whether this mode is ever going to be used
+		 */
+		rows = FEE_EDU_FRAME_24x24_ROWS;
+	        cols = FEE_EDU_FRAME_24x24_COLS;
+		bins = 24;
+		break;
+	default:
+		printf("Unknown binning mode specified\n");
+		return;
+	}
+
+	readout = smile_fee_get_readout_node_sel();
+
+
+	if (readout & FEE_READOUT_NODE_E2)
+		E2 = fee_sim_get_ft_data(ccd2_e, rows, cols, bins);
+
+	if (readout & FEE_READOUT_NODE_F2)
+		F2 = fee_sim_get_ft_data(ccd2_f, rows, cols, bins);
+
+	if (readout & FEE_READOUT_NODE_E4)
+		E4 = fee_sim_get_ft_data(ccd4_e, rows, cols, bins);
+
+	if (readout & FEE_READOUT_NODE_F4)
+		F4 = fee_sim_get_ft_data(ccd4_f, rows, cols, bins);
+
+	fee_sim_frame_transfer(cfg, FEE_MODE_ID_FTP,
+			       (uint8_t *) E2, (uint8_t *) F2,
+			       (uint8_t *) E4, (uint8_t *) F4,
+			       sizeof(uint16_t) * rows * cols);
+
+	free(E2);
+	free(F2);
+	free(E4);
+	free(F4);
+}
+
+
+
+/**
  * @brief generate a pattern for frame transfer pattern mode
  */
 
@@ -461,8 +618,11 @@ static struct fee_pattern *fee_sim_gen_ft_pat(uint8_t ccd_side, uint8_t ccd_id,
 
 			pix.col = j & 0x1F;
 
-			//buf[i * cols + j].field = __cpu_to_be16(pix.field);
+#if 0
+			buf[i * cols + j].field = __cpu_to_be16(pix.field);
+#else
 			buf[i * cols + j].field = pix.field;
+#endif
 		}
 	}
 
@@ -554,6 +714,7 @@ static void fee_sim_exec(struct sim_net_cfg *cfg)
 		break;
 	case FEE_MODE_ID_FTP:
 		/* frame transfer pattern */
+		printf("Frame Transfer Pattern Mode\n");
 		fee_sim_exec_ft_pat_mode(cfg);
 		break;
 	case FEE_MODE_ID_STBY:
@@ -562,7 +723,8 @@ static void fee_sim_exec(struct sim_net_cfg *cfg)
 		break;
 	case FEE_MODE_ID_FT:
 		/* frame transfer */
-		printf("Mode %d not implemented\n", mode);
+		printf("Frame Transfer Mode\n");
+		fee_sim_exec_ft_mode(cfg);
 		break;
 	case FEE_MODE_ID_FF:
 		/* full frame */
@@ -601,6 +763,33 @@ static void fee_sim_exec(struct sim_net_cfg *cfg)
 
 void fee_sim_main(struct sim_net_cfg *cfg)
 {
+	/* we have 2 ccds, each with 2 sides (E&F) */
+	const size_t img_side_pix = FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS;
+
+	ccd2_e = (uint16_t *) malloc(img_side_pix * sizeof(uint16_t));
+	if (!ccd2_e) {
+		perror("malloc");
+		exit(-1);
+	}
+
+	ccd2_f = (uint16_t *) malloc(img_side_pix * sizeof(uint16_t));
+	if (!ccd2_f) {
+		perror("malloc");
+		exit(-1);
+	}
+
+	ccd4_e = (uint16_t *) malloc(img_side_pix * sizeof(uint16_t));
+	if (!ccd4_e) {
+		perror("malloc");
+		exit(-1);
+	}
+
+	ccd4_f = (uint16_t *) malloc(img_side_pix * sizeof(uint16_t));
+	if (!ccd4_f) {
+		perror("malloc");
+		exit(-1);
+	}
+
 	/* simulator main loop */
 	while (1) {
 
@@ -617,4 +806,8 @@ void fee_sim_main(struct sim_net_cfg *cfg)
 		printf("OP complete\n");
 	}
 
+	free(ccd2_e);
+	free(ccd2_f);
+	free(ccd4_e);
+	free(ccd4_f);
 }
