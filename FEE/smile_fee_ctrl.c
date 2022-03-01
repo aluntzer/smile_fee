@@ -190,33 +190,28 @@ void smile_fee_set_parallel_clk_overlap(uint16_t overlap)
 /**
  * @brief get CCD read-out
  *
- * @param ccd_id the id of the CCD (1 == CCD1 , 2 == CCD2, all others reserved)
+ * @param ccd_id the id of the CCD (1 == CCD2 , 2 == CCD4, others unused)
  *
- * @note 1 indicates that CCD is read-out
- *
- * @returns 1 if ccd is read-out, 0 otherwise; always returns 0 if reserved
- *	    CCD ID is issued
+ * @returns 1 if ccd is read-out, 0 otherwise
  */
 
 uint32_t smile_fee_get_ccd_readout(uint32_t ccd_id)
 {
-	if (!ccd_id)
-		return 0;
-
-	if (ccd_id > 2)
-		return 0;
-
-	/* note: bit index starts at 0, but ccd id starts at 1, hence the
-	 * subtraction
+	/* this was a pretty weird change in the reg map document as of v0.22
+	 * now the reg is interpreted as: 1 == CCD2, all others == CCD4
 	 */
-	return (smile_fee->cfg_reg_2 >> 24) & (1 << (ccd_id - 1));
+	if (ccd_id == 1)
+		return (smile_fee->cfg_reg_2 >> 24) & (1 << (ccd_id - 1));
+
+	return (smile_fee->cfg_reg_2 >> 24) & !1;
+
 }
 
 
 /**
  * @brief set CCD read-out
  *
- * @param ccd_id the id of the CCD (1 == CCD1 , 2 == CCD2, all others reserved)
+ * @param ccd_id the id of the CCD (1 == CCD2 , 2 == CCD4, all others reserved)
  * @param status the read-out status to set, either 0 or any bit set
  *
  * @note 1 indicates that CCD is read-out
@@ -225,6 +220,11 @@ uint32_t smile_fee_get_ccd_readout(uint32_t ccd_id)
 
 void smile_fee_set_ccd_readout(uint32_t ccd_id, uint32_t status)
 {
+
+	/* see smile_fee_get_ccd_readout(); we keep the pre-v0.22 scheme
+	 * by selecting the ccd by bit position
+	 */
+
 	if (!ccd_id)
 		return;
 

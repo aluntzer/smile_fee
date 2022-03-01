@@ -45,6 +45,8 @@
  * FEE modes
  *
  * @see MSSL-SMILE-SXI-IRD-0001  Draft A.14, req. MSSL-IF-17
+ *	also SMILE-MSSL-PL-Register_map_v0.22, as the IRD does not list all
+ *	modes
  */
 
 
@@ -54,6 +56,8 @@
 #define FEE_MODE_ID_FT		0x3	/* frame transfer */
 #define FEE_MODE_ID_FF		0x4	/* full frame */
 #define FEE_CMD__ID_IMM_ON	0x8	/* immediate on-mode, this is a command, not a mode */
+#define FEE_MODE_ID_FFSIM	0x9	/* full frame simulation simulation */
+#define FEE_MODE_ID_EVSIM	0xA	/* event detection simulation */
 #define FEE_MODE_ID_PTP1	0xB	/* parallel trap pump mode 1 */
 #define FEE_MODE_ID_PTP2	0xC	/* parallel trap pump mode 2 */
 #define FEE_MODE_ID_STP1	0xD	/* serial trap pump mode 1 */
@@ -166,12 +170,16 @@ struct fee_event_dection {
  *		MSSL-IF-38
  */
 
+/* image and readout sections */
 #define FEE_CCD_IMG_SEC_ROWS		3791
 #define FEE_CCD_IMG_SEC_COLS		2255
-#define FEE_EDU_FRAME_6x6_ROWS		639
-#define FEE_EDU_FRAME_6x6_COLS		384
-#define FEE_EDU_FRAME_24x24_ROWS	160
-#define FEE_EDU_FRAME_24x24_COLS	 99
+#define FEE_CCD_RDO_SEC_ROWS		 719
+#define FEE_CCD_RDO_SEC_COLS		2255
+/* binned frame sizes */
+#define FEE_EDU_FRAME_6x6_ROWS		 639
+#define FEE_EDU_FRAME_6x6_COLS		 384
+#define FEE_EDU_FRAME_24x24_ROWS	 160
+#define FEE_EDU_FRAME_24x24_COLS	  99
 
 
 
