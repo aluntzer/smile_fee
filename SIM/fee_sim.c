@@ -15,6 +15,10 @@
  *
  * @brief SMILE FEE simulator
  *
+ * NOTE: I don't know the actual orientation of the CCDs coordinate system,
+ *	 so the frames could be flipped upside down. This may however not be of
+ *	 any consequence.
+ *
  */
 
 #include <stddef.h>
@@ -34,10 +38,11 @@
 #include <byteorder.h>
 
 
-static uint16_t *ccd2_e;
-static uint16_t *ccd2_f;
-static uint16_t *ccd4_e;
-static uint16_t *ccd4_f;
+static uint16_t *CCD2E;
+static uint16_t *CCD2F;
+static uint16_t *CCD4E;
+static uint16_t *CCD4F;
+static uint16_t *RDO;
 
 
 struct fee_data_payload {
@@ -73,6 +78,18 @@ static struct fee_hk_data_payload *fee_sim_create_hk_data_payload(void)
 	/* XXX set actual HK data here once we get the contents/order info */
 
 	return hk;
+}
+
+
+/**
+ * @brief get the current frame counter, increments once for every call
+ */
+
+static uint16_t fee_get_frame_cntr(void)
+{
+	static uint16_t frame_cntr;
+
+	return frame_cntr++;
 }
 
 
@@ -340,6 +357,84 @@ static void fee_sim_tx_payload_data(struct sim_net_cfg *cfg,
 }
 
 
+static void fee_sim_exec_ff_mode(struct sim_net_cfg *cfg, uint8_t fee_mode)
+{
+	struct fee_hk_data_payload *hk;
+	struct fee_data_payload *pld;
+
+	uint8_t id;
+
+	uint16_t *E, *F;
+	uint16_t *frame = NULL;
+
+	size_t i;
+	size_t n ;
+
+
+
+	if (smile_fee_get_ccd_readout(1)) {
+		E = CCD2E;
+		F = CCD2F;
+		id = FEE_CCD_ID_2;
+	} else if (smile_fee_get_ccd_readout(2)) {
+		E = CCD4E;
+		F = CCD4F;
+		id = FEE_CCD_ID_4;
+	} else {
+		return;
+	}
+
+	/* we transfer BOTH sides */
+	n = 2 * FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS * sizeof(uint16_t);
+	frame = malloc(n);
+	if (!frame) {
+		perror("malloc");
+		exit(-1);
+	}
+
+	/* as per MSSL-IF-115 MSSL-SMILE-SXI-IRD-0001 Draft A0.14, full frame
+	 * transfer pixels are ordered in pairs of FxEx
+	 */
+	for (i = 0; i < FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS; i++) {
+		frame[2 * i]     = F[i];
+		frame[2 * i + 1] = E[i];
+	}
+
+
+	pld = fee_sim_create_data_payload();
+
+	/* required once */
+	fee_sim_hdr_set_logical_addr(&pld->pkt->hdr, DPU_LOGICAL_ADDRESS);
+	fee_sim_hdr_set_protocol_id(&pld->pkt->hdr, FEE_DATA_PROTOCOL);
+	fee_sim_hdr_set_frame_cntr(&pld->pkt->hdr, fee_get_frame_cntr());
+
+	/* in FF mode, first packet in sequence is SUGGESTED to be HK,
+	 * given the sequence number in Table 8-13 of
+	 * MSSL-SMILE-SXI-IRD-0001 Draft A0.14
+	 */
+	hk = fee_sim_create_hk_data_payload();
+
+	if (hk) {
+		fee_sim_hdr_set_pkt_type(&pld->pkt->hdr, FEE_PKT_TYPE_HK);
+		fee_sim_tx_payload_data(cfg, pld, (uint8_t *) hk,
+					sizeof(struct fee_hk_data_payload));
+		fee_sim_destroy_hk_data_payload(hk);
+	}
+
+	fee_sim_hdr_set_pkt_type(&pld->pkt->hdr, FEE_PKT_TYPE_DATA);
+	/* CCD side is unused in this mode */
+	fee_sim_hdr_set_ccd_id(&pld->pkt->hdr,   id);
+	fee_sim_hdr_set_fee_mode(&pld->pkt->hdr, fee_mode);
+	fee_sim_tx_payload_data(cfg, pld, (uint8_t *) frame, n);
+
+
+	fee_sim_destroy_data_payload(pld);
+
+	free(frame);
+}
+
+
+
 /**
  * @brief execute a frame transfer block
  *
@@ -364,7 +459,6 @@ static void fee_sim_frame_transfer(struct sim_net_cfg *cfg,  uint8_t fee_mode,
 	struct fee_hk_data_payload *hk;
 	struct fee_data_payload *pld;
 
-	static uint16_t frame_cntr;
 
 
 	switch (fee_mode) {
@@ -381,7 +475,7 @@ static void fee_sim_frame_transfer(struct sim_net_cfg *cfg,  uint8_t fee_mode,
 	/* required once */
 	fee_sim_hdr_set_logical_addr(&pld->pkt->hdr, DPU_LOGICAL_ADDRESS);
 	fee_sim_hdr_set_protocol_id(&pld->pkt->hdr, FEE_DATA_PROTOCOL);
-	fee_sim_hdr_set_frame_cntr(&pld->pkt->hdr, frame_cntr);
+	fee_sim_hdr_set_frame_cntr(&pld->pkt->hdr, fee_get_frame_cntr());
 
 	/* in FT mode, first packet in sequence is HK */
 	hk = fee_sim_create_hk_data_payload();
@@ -429,9 +523,6 @@ static void fee_sim_frame_transfer(struct sim_net_cfg *cfg,  uint8_t fee_mode,
 		fee_sim_tx_payload_data(cfg, pld, F4, n);
 	}
 
-
-	/* increment frame counter */
-	frame_cntr++;
 
 	fee_sim_destroy_data_payload(pld);
 }
@@ -563,16 +654,16 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 
 
 	if (readout & FEE_READOUT_NODE_E2)
-		E2 = fee_sim_get_ft_data(ccd2_e, rows, cols, bins);
+		E2 = fee_sim_get_ft_data(CCD2E, rows, cols, bins);
 
 	if (readout & FEE_READOUT_NODE_F2)
-		F2 = fee_sim_get_ft_data(ccd2_f, rows, cols, bins);
+		F2 = fee_sim_get_ft_data(CCD2F, rows, cols, bins);
 
 	if (readout & FEE_READOUT_NODE_E4)
-		E4 = fee_sim_get_ft_data(ccd4_e, rows, cols, bins);
+		E4 = fee_sim_get_ft_data(CCD4E, rows, cols, bins);
 
 	if (readout & FEE_READOUT_NODE_F4)
-		F4 = fee_sim_get_ft_data(ccd4_f, rows, cols, bins);
+		F4 = fee_sim_get_ft_data(CCD4F, rows, cols, bins);
 
 	fee_sim_frame_transfer(cfg, FEE_MODE_ID_FTP,
 			       (uint8_t *) E2, (uint8_t *) F2,
@@ -728,7 +819,8 @@ static void fee_sim_exec(struct sim_net_cfg *cfg)
 		break;
 	case FEE_MODE_ID_FF:
 		/* full frame */
-		printf("Mode %d not implemented\n", mode);
+		printf("Full Frame Mode\n");
+		fee_sim_exec_ff_mode(cfg, FEE_MODE_ID_FF);
 		break;
 	case FEE_CMD__ID_IMM_ON:
 		/* immediate on-mode, this is a command, not a mode */
@@ -766,29 +858,37 @@ void fee_sim_main(struct sim_net_cfg *cfg)
 	/* we have 2 ccds, each with 2 sides (E&F) */
 	const size_t img_side_pix = FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS;
 
-	ccd2_e = (uint16_t *) malloc(img_side_pix * sizeof(uint16_t));
-	if (!ccd2_e) {
+	CCD2E = (uint16_t *) malloc(img_side_pix * sizeof(uint16_t));
+	if (!CCD2E) {
 		perror("malloc");
 		exit(-1);
 	}
 
-	ccd2_f = (uint16_t *) malloc(img_side_pix * sizeof(uint16_t));
-	if (!ccd2_f) {
+	CCD2F = (uint16_t *) malloc(img_side_pix * sizeof(uint16_t));
+	if (!CCD2F) {
 		perror("malloc");
 		exit(-1);
 	}
 
-	ccd4_e = (uint16_t *) malloc(img_side_pix * sizeof(uint16_t));
-	if (!ccd4_e) {
+	CCD4E = (uint16_t *) malloc(img_side_pix * sizeof(uint16_t));
+	if (!CCD4E) {
 		perror("malloc");
 		exit(-1);
 	}
 
-	ccd4_f = (uint16_t *) malloc(img_side_pix * sizeof(uint16_t));
-	if (!ccd4_f) {
+	CCD4F = (uint16_t *) malloc(img_side_pix * sizeof(uint16_t));
+	if (!CCD4F) {
 		perror("malloc");
 		exit(-1);
 	}
+
+	/* we need only a single readout area for simulation */
+	RDO = (uint16_t *) malloc(img_side_pix * sizeof(uint16_t));
+	if (!RDO) {
+		perror("malloc");
+		exit(-1);
+	}
+
 
 	/* simulator main loop */
 	while (1) {
@@ -806,8 +906,9 @@ void fee_sim_main(struct sim_net_cfg *cfg)
 		printf("OP complete\n");
 	}
 
-	free(ccd2_e);
-	free(ccd2_f);
-	free(ccd4_e);
-	free(ccd4_f);
+	free(CCD2E);
+	free(CCD2F);
+	free(CCD4E);
+	free(CCD4F);
+	free(RDO);
 }
