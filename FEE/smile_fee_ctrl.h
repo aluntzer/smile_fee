@@ -23,7 +23,7 @@
 __extension__
 struct smile_fee_mirror {
 
-	/* FEE RW registers (SMILE-MSSL-PL-Register_map_v0.20) */
+	/* FEE RW registers (SMILE-MSSL-PL-Register_map_v0.22) */
 	/* (includes unused) */
 	uint32_t cfg_reg_0;
 	uint32_t cfg_reg_1;
@@ -53,7 +53,7 @@ struct smile_fee_mirror {
 	uint32_t cfg_reg_25;
 	uint32_t cfg_reg_26;
 
-	/* FEE  RO registers (SMILE-MSSL-PL-Register_map_v0.20) */
+	/* FEE  RO registers (SMILE-MSSL-PL-Register_map_v0.22) */
 
 	uint32_t unused[423];	/* gap */
 
@@ -139,9 +139,7 @@ int smile_fee_sync_charge_injection_width(enum sync_direction dir);
 int smile_fee_sync_charge_injection_gap(enum sync_direction dir);
 int smile_fee_sync_parallel_toi_period(enum sync_direction dir);
 int smile_fee_sync_parallel_clk_overlap(enum sync_direction dir);
-#if 0
 int smile_fee_sync_ccd_readout(enum sync_direction dir);
-#endif
 int smile_fee_sync_n_final_dump(enum sync_direction dir);
 int smile_fee_sync_h_end(enum sync_direction dir);
 int smile_fee_sync_charge_injection(enum sync_direction dir);
@@ -193,9 +191,7 @@ uint16_t smile_fee_get_charge_injection_width(void);
 uint16_t smile_fee_get_charge_injection_gap(void);
 uint16_t smile_fee_get_parallel_toi_period(void);
 uint16_t smile_fee_get_parallel_clk_overlap(void);
-#if 0
 uint32_t smile_fee_get_ccd_readout(uint32_t ccd_id);
-#endif
 uint16_t smile_fee_get_n_final_dump(void);
 uint16_t smile_fee_get_h_end(void);
 uint32_t smile_fee_get_charge_injection(void);
@@ -247,9 +243,7 @@ void smile_fee_set_charge_injection_width(uint16_t width);
 void smile_fee_set_charge_injection_gap(uint16_t width);
 void smile_fee_set_parallel_toi_period(uint16_t period);
 void smile_fee_set_parallel_clk_overlap(uint16_t overlap);
-#if 0
 void smile_fee_set_ccd_readout(uint32_t ccd_id, uint32_t status);
-#endif
 void smile_fee_set_n_final_dump(uint16_t lines);
 void smile_fee_set_h_end(uint16_t transfers);
 void smile_fee_set_charge_injection(uint32_t mode);

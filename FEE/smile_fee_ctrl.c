@@ -14,7 +14,7 @@
  * more details.
  *
  * @brief RMAP SMILE FEE control library
- * @see SMILE-MSSL-PL-Register_map_v0.18
+ * @see SMILE-MSSL-PL-Register_map_v0.22
  *
  * USAGE:
  *
@@ -186,7 +186,7 @@ void smile_fee_set_parallel_clk_overlap(uint16_t overlap)
 	smile_fee->cfg_reg_2 |=  (0xFFFUL & ((uint32_t) overlap)) << 12;
 }
 
-#if 0
+
 /**
  * @brief get CCD read-out
  *
@@ -242,7 +242,6 @@ void smile_fee_set_ccd_readout(uint32_t ccd_id, uint32_t status)
 	smile_fee->cfg_reg_2 |=  ((status << (ccd_id - 1)) << 24);
 }
 
-#endif /* 0 */
 
 
 /**
@@ -3312,7 +3311,7 @@ int smile_fee_sync_parallel_clk_overlap(enum sync_direction dir)
 	return smile_fee_sync_cfg_reg_2(dir);
 }
 
-#if 0
+
 /**
  * @brief sync CCD read-out
  *
@@ -3325,7 +3324,7 @@ int smile_fee_sync_ccd_readout(enum sync_direction dir)
 {
 	return smile_fee_sync_cfg_reg_2(dir);
 }
-#endif /* 0 */
+
 
 /**
  * @brief sync the amount of lines to be dumped after readout
