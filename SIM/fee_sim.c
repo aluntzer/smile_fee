@@ -37,6 +37,9 @@
 
 #include <byteorder.h>
 
+#include <sys/time.h>
+#include <fitsio.h>
+
 
 static uint16_t *CCD2E;
 static uint16_t *CCD2F;
@@ -49,6 +52,596 @@ struct fee_data_payload {
 	struct fee_data_pkt *pkt;
 	size_t data_len_max;
 };
+
+
+
+
+
+
+/* begin ccd sim TODO: separate */
+
+#include <math.h>
+
+/* values values from "The SMILE Soft X-ray Imager (SXI) CCD design and
+ * development" (Soman et al) */
+/* nominal photon energy range */
+#define SWCX_PHOT_EV_MIN	 200.0
+#define SWCX_PHOT_EV_MAX	2000.0
+/* pixel responsitivity in µV/electron */
+#define CDD_RESP_uV_e		7.0
+
+/* next few characteristics are just guesses based on a
+ * typical CMOS ADC 5V input range and the responsitivity above
+ * full well capacity in e-, */
+#define CCD_N_FWC		714e3
+/* dark signal, e-/pix/s, also CCD270-ish */
+#define CCD_DARK		0.5
+/* dark signal non-uniformity, as above */
+#define CCD_DAR_NONUNI		0.05
+/* readout noise e- rms */
+#define CCD_NOISE		20.
+
+
+/* number of electrons generated per 1 eV,
+ * we will assume linear behaviour */
+#define e_PER_eV		(55.0/200.0)
+/* ccd thickness in µm, we us that for our cosmics */
+#define CCD_THICKNESS_um	16.0
+/* a ccd side length in mm */
+#define CCD_SIDE_mm		81.8
+/* ccd is partially covered for readout, this is the height
+ * of the imaging area in mm */
+#define CCD_IMG_HEIGHT_mm	68.24
+/* the number of ccd pixels for a given row or column */
+#define CCD_PIX_PER_AX		4510
+/* the side dimensions of a pixel in µmn */
+#define PIXEL_LEN_um		((81.8 * 1000.) / CCD_PIX_PER_AX)
+
+/* we have 16 bit samples, but (allegedly) only 12 bits of resolution  */
+#define PIX_SATURATION		((1 << 12) - 1)
+
+
+/* some values from SMILE SXI CCD Testing and Calibration Event
+ * Detection Methodology TN 1.2 (Soman et al)
+ */
+/* the following integrated event rates are in counts/CCD/s for the illuminated
+ * section of a CCD;
+ *
+ * note that we could add sigmas for the particular rates, but for now we'll
+ * just use these as the mean with a sigma of 1
+ */
+/* solar wind exchange x-ray event rate for low and high solar activity */
+#define SWCX_CCD_RATE_MIN	5.134
+#define SWCX_CCD_RATE_MAX	82.150
+/* soft x-ray thermal galacitc background event rate */
+#define SXRB_CCD_RATE		15.403
+/* particle background event rate (solar?) */
+#define PB_CCD_RATE_MIN		0.627
+#define PB_CCD_RATE_MAX		1.255
+/* mean point source rate over FOV */
+#define PS_CCD_RATE		0.657
+/* 4pi cosmic ray flux (in particles per CCD as well) */
+#define COSMIC_FLUX		24.61
+
+/* we assume particle energies of 10 MeV to 10 GeV */
+#define PARTICLE_EV_MIN		1e07
+#define PARTICLE_EV_MAX		1e11
+/* energy distribution per magnitute over min (i.e. x=0, 1, 2 ...) */
+#define PARTICLE_DROPOFF	1.0		/* extra drop */
+#define PARTICLE_RATE_DROP(x)	powf(10., -(x) * PARTICLE_DROPOFF + 1.)
+/**
+ * the particle energy loss follows a type of Landau distribution,
+ * but appears to be relatively uniform regardless of the particle energy
+ * 0.23 keV/µm of silicone appears to be a sensible value for our purposes, see
+ * doi 10.1088/1748-0221/6/06/p06013
+ *
+ * given our ccd thickness, this would amount to a deposition on the order
+ * of ~10k e- per pixel, which is only a few % of its FWC, which really
+ * isn't all that much
+ */
+#define PARTICLE_ENERGY_LOSS_PER_UM_EV 230.
+
+
+/* other sim config */
+/* solar activity selector, range 0-1 */
+#define SOLAR_ACT		0.5
+/* number of pre-computed dark samples for faster simulation */
+#define DARK_SAMPLES		128
+/* simulate dark current (0/1) */
+#define CFG_SIM_DARK		0
+/* number of pre-computed readout noise samples for faster simulation */
+#define RD_NOISE_SAMPLES	128
+
+/* probability of charge transfer inefficiency occuring in a column */
+#define CTI_PROB		0.1
+/* bleed rate percentage if a CTI happens */
+#define CTI_BLEED		0.1
+/* probability of multi-pixel hits; set for testing; reasonable value: 0.002 */
+#define MULTIPIX_HIT_PROB	0.5
+
+
+
+static void save_fits(const char *name, uint16_t *buf, long rows, long cols)
+{
+	long naxes[3];
+	long n_elem;
+	int status = 0;
+	fitsfile *ff;
+	long fpixel[3] = {1, 1, 1};
+
+
+
+	naxes[0] = cols;
+	naxes[1] = rows;
+	naxes[2] = 1;
+	n_elem = naxes[0] * naxes[1] * naxes[2];
+
+	if (fits_create_file(&ff, name, &status)) {
+		printf("error %d\n", status);
+		exit(-1);
+	}
+
+	if (fits_create_img(ff, USHORT_IMG, 3, naxes, &status)) {
+		printf("error %d\n", status);
+		exit(-1);
+	}
+
+	if (fits_write_pix(ff, TUSHORT, fpixel, n_elem, buf, &status)) {
+		printf("error %d (%d)\n",status, __LINE__);
+		exit(-1);
+	}
+
+	if (fits_close_file(ff, &status)) {
+		printf("error %d (%d)\n",status, __LINE__);
+		exit(-1);
+	}
+}
+
+
+static float sim_rand_gauss(void)
+{
+	static int gen;
+
+	static float u, v;
+
+
+	gen = !gen;
+
+	if (!gen)
+		return sqrtf(- 2.0 * logf(u)) * cosf(2.0 * M_PI * v);
+
+	u = (rand() + 1.0) / (RAND_MAX + 2.0);
+	v =  rand()        / (RAND_MAX + 1.0);
+
+	return sqrtf(-2.0 * logf(u)) * sinf(2.0 * M_PI * v);
+}
+
+
+static uint16_t ccd_sim_get_swcx_ray(void)
+{
+	float p;
+
+	/* we assume the incident x-ray energy is uniformly distributed */
+	p = fmodf(rand(), (SWCX_PHOT_EV_MAX + 1 - SWCX_PHOT_EV_MIN));
+        p += SWCX_PHOT_EV_MAX;
+	p *= e_PER_eV;
+	p *= CDD_RESP_uV_e;	/* scale to voltage-equivalent */
+
+	if (p > PIX_SATURATION)
+		return PIX_SATURATION;
+	else
+		return (uint16_t) p;
+}
+
+
+static void ccd_sim_add_swcx(uint16_t tint_ms)
+{
+	size_t n = FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS;
+	const float sigma = 1.0;
+	float amp;
+	float ray;
+	float tint = (float) tint_ms / 1000.0;
+
+	size_t i;
+	size_t x, y;
+	size_t pix;
+
+
+	/* our event amplitude is the integration time for the configured
+	 * event rates
+	 */
+	amp = tint * (SWCX_CCD_RATE_MIN + SOLAR_ACT * (SWCX_CCD_RATE_MAX - SWCX_CCD_RATE_MIN));
+
+	/* use the square of the amplitude to scale the noise */
+	amp = amp + sqrtf(amp) * sigma * sim_rand_gauss();
+	/* fill CCD2 sides */
+	for (i = 0; i < ((size_t) amp / 2); i++) {
+
+		ray = ccd_sim_get_swcx_ray();
+		pix = rand() % (n + 1);
+
+		/* trigger on random occurence (retval != 0) */
+		if (rand() % ((int) (1. / MULTIPIX_HIT_PROB))) {
+			CCD2E[pix] += ray;
+		} else {
+			float fray = (float) ray;
+			x = pix % FEE_CCD_IMG_SEC_COLS;
+			y = (pix - x) / FEE_CCD_IMG_SEC_COLS;
+
+			/* XXX meh... this function needs cleanup
+			 * what's going on here: distribute hit power
+			 * to adjacent pixels
+			 */
+			while (fray > 0.0) {
+				int yy = 1 - rand() % 2;
+				int xx = 1 - rand() % 2;
+				ssize_t pp = (yy + y) * FEE_CCD_IMG_SEC_COLS + (xx + x);
+				float bleedoff = ((float) (rand() % 100)) * 0.01 * fray;
+
+				/* out of bounds? */
+				if (pp < 0 || pp > (ssize_t) n)
+					continue;
+
+				/* make sure to reasonably abort the loop */
+				if (bleedoff < 0.05 * (float) ray)
+					bleedoff = fray;
+
+				CCD2E[pp] += bleedoff;
+				fray -= bleedoff;
+			}
+		}
+
+		/* XXX rest stays as is for the moment, just testing here */
+
+
+		ray = ccd_sim_get_swcx_ray();
+		pix = rand() % (n + 1);
+		CCD2F[pix] += ray;
+	}
+
+	/* same for CCD4 */
+
+	amp = amp + sqrt(amp) * sigma * sim_rand_gauss();
+	for (i = 0; i < ((size_t) amp / 2); i++) {
+		pix = rand() % (n + 1);
+		CCD4E[pix] += ccd_sim_get_swcx_ray();
+		pix = rand() % (n + 1);
+		CCD4F[pix] += ccd_sim_get_swcx_ray();
+	}
+}
+
+
+
+static void ccd_sim_add_sxrb(uint16_t tint_ms)
+{
+	size_t n = FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS;
+	const float sigma = 1.0;
+	float amp;
+	float tint = (float) tint_ms / 1000.0;
+
+	size_t i;
+
+	/* XXX add configurable CTI effect */
+
+	/* our event amplitude is the integration time for the configured
+	 * event rates
+	 */
+	amp = tint * SXRB_CCD_RATE;
+
+	/* use the square of the amplitude to scale the noise */
+	amp = amp + sqrtf(amp) * sigma * sim_rand_gauss();
+	/* we use the same energies as SWCX */
+	/* fill CCD2 sides */
+	for (i = 0; i < ((size_t) amp / 2); i++) {
+
+		CCD2E[rand() % (n + 1)] += ccd_sim_get_swcx_ray();
+		CCD2F[rand() % (n + 1)] += ccd_sim_get_swcx_ray();
+	}
+
+	/* same for CCD4 */
+
+	amp = amp + sqrt(amp) * sigma * sim_rand_gauss();
+	for (i = 0; i < ((size_t) amp / 2); i++) {
+
+		CCD4E[rand() % (n + 1)] += ccd_sim_get_swcx_ray();
+		CCD4F[rand() % (n + 1)] += ccd_sim_get_swcx_ray();
+	}
+}
+
+
+/**
+ * @brief get a (cosmic) particle within the given energy range distribution
+ */
+
+static float ccd_sim_get_particle(void)
+{
+	const float pmin = log10f(PARTICLE_EV_MIN);
+	const float pmax = log10f(PARTICLE_EV_MAX);
+
+	float r, p;
+
+	/* get a energy range exponent */
+	r = fmodf(rand(), (pmax + 1. - pmin));
+	/* distribute to (logarithmic) particle rate */
+	r = PARTICLE_RATE_DROP(r);
+
+	/* get energy of the particle */
+	p = PARTICLE_EV_MIN + (PARTICLE_EV_MAX - PARTICLE_EV_MIN) * r;
+	p *= e_PER_eV;
+
+	return p;
+}
+
+
+static void ccd_sim_add_particles(uint16_t tint_ms)
+{
+	size_t n = FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS;
+	const float sigma = 1.0;
+	float amp;
+	float tint = (float) tint_ms / 1000.0;
+
+	size_t i;
+
+	float x, y;
+	float p_ev;
+	float phi, theta;
+	float d, r;
+	float dx, dy;
+	float d_ev;
+
+
+	float *ccd;
+
+
+	ccd = (float *) calloc(sizeof(float), n);
+	if (!ccd) {
+		perror("malloc");
+		exit(-1);
+	}
+
+	/* our event amplitude is the integration time for the configured
+	 * event rates
+	 */
+	amp = tint * (COSMIC_FLUX + PB_CCD_RATE_MIN
+		      + (PB_CCD_RATE_MAX - PB_CCD_RATE_MIN) * SOLAR_ACT);
+
+	/* use the square of the amplitude to scale the noise */
+	amp = amp + sqrtf(amp) * sigma * sim_rand_gauss();
+
+	/* XXX fill both CCD sides, only single-side now */
+	for (i = 0; i < ((size_t) amp / 2); i++) {
+
+		/* initial particle energy */
+		p_ev = ccd_sim_get_particle();
+
+		/* pixel of particle entry into CCD */
+		x = (float) (rand() % (FEE_CCD_IMG_SEC_COLS + 1));
+		y = (float) (rand() % (FEE_CCD_IMG_SEC_ROWS + 1));
+
+		/* angle from CCD plane */
+		phi   = fmod(rand(), M_PI_2);
+		/* direction within plane */
+		theta = M_PI - fmod(rand(), 2. * M_PI);
+
+		/* max distance traveled through ccd */
+		d = CCD_THICKNESS_um / tanf(phi);
+
+		/* step size in x and y direction, we compute
+		 * one pixel at a time and assume they are all cubes,
+		 * so the max diagonal is sqrt(2) * thickness for the
+		 * absorption
+		 */
+		dx = (PIXEL_LEN_um * M_SQRT2) * sinf(theta);
+		dy = (PIXEL_LEN_um * M_SQRT2) * cosf(theta);
+		/* max distance per pixel in vertical direction */
+		r  = (CCD_THICKNESS_um * M_SQRT2) * cosf(phi);
+
+		/* scale energy loss by longest distance travelelled
+		 * within a pixel and the material-specific loss
+		*/
+		if (fabsf(dx) > fabsf(dy))
+			d_ev = fabsf(dx);
+		else
+			d_ev = fabsf(dy);
+
+		/* in case vertical travel component is the longest */
+		if (fabsf(d_ev) < fabsf(r))
+			d_ev = fabsf(r);
+
+		/* scale to material */
+		d_ev *= PARTICLE_ENERGY_LOSS_PER_UM_EV;
+
+#if 0
+		printf("energy: %g, x: %g y: %g, phi %g, theta %g streak %g, dx %g, dy %g, r %g, d_ev keV %g\n",
+		       p_ev, x, y, phi * 180. / M_PI, theta * 180. / M_PI, d, dx, dy, r, d_ev/1000);
+#endif
+
+		/* XXX scale back to integer CCD pixels (not pretty..) */
+		dx /= PIXEL_LEN_um * M_SQRT2;
+		dy /= PIXEL_LEN_um * M_SQRT2;
+
+
+		float p0 = p_ev;
+		float d0 = d;
+		while (1) {
+
+			size_t pix;
+
+			if (x <= 0)
+				break;
+			if (y <= 0)
+				break;
+			if (x > FEE_CCD_IMG_SEC_COLS)
+				break;
+			if (y > FEE_CCD_IMG_SEC_ROWS)
+				break;
+			if (d < 0.)
+				break;
+			/* could set configurable cutoff here */
+			if (d_ev < 0.)
+				break;
+
+			pix = (size_t) y * FEE_CCD_IMG_SEC_COLS + (size_t) x;
+			ccd[pix] += d_ev * e_PER_eV * CDD_RESP_uV_e * (p_ev/p0) * logf(d/d0);
+
+			x += dx;
+			y += dy;
+
+			p_ev -= d_ev;
+			d -= r;
+
+		}
+
+	}
+
+	for (i = 0; i < n; i++) {
+
+		float tot = CCD2E[i] + ccd[i];
+
+		if (tot < (float) PIX_SATURATION)
+			CCD2E[i] = (uint16_t) tot;
+		else /* else saturate, TODO: bleed charges (maybe) */
+			CCD2E[i] = PIX_SATURATION;
+	}
+
+
+	free(ccd);
+}
+
+
+
+/**
+ * we don't really need a dark sim, the effective amplitude variation is way
+ * to low to be significant
+ */
+__attribute__((unused))
+static void ccd_sim_add_dark(uint16_t tint_ms)
+{
+	float *noisearr;
+	size_t n = FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS;
+	float amp;
+	float tint = (float) tint_ms / 1000.0;
+
+	size_t i;
+
+
+
+	/* total average accumulated dark current amplitude */
+	amp = tint * CCD_DARK;
+
+	/* use the square of the amplitude to scale the noise */
+	amp = amp + sqrtf(amp);
+
+	noisearr = (float *) calloc(sizeof(float), DARK_SAMPLES);
+	if (!noisearr) {
+		perror("malloc");
+		exit(-1);
+	}
+
+	for (i = 0; i < DARK_SAMPLES; i++) {
+		noisearr[i] =  amp + fmodf(sim_rand_gauss(), CCD_DAR_NONUNI);
+		noisearr[i]*= CDD_RESP_uV_e;	/* scale to voltage-equivalent */
+	}
+
+
+	/* fill CCDs */
+	for (i = 0; i < n; i++) {
+		CCD2E[i] += noisearr[rand() % (DARK_SAMPLES + 1)];
+		CCD2F[i] += noisearr[rand() % (DARK_SAMPLES + 1)];
+		CCD4E[i] += noisearr[rand() % (DARK_SAMPLES + 1)];
+		CCD4F[i] += noisearr[rand() % (DARK_SAMPLES + 1)];
+	}
+
+	free(noisearr);
+}
+
+
+static void ccd_sim_add_rd_noise(uint16_t *ccd, size_t n)
+{
+	float *noisearr;
+	const float sigma = 1.0;
+	float amp;
+
+	size_t i;
+
+	struct timeval t0, t;
+	double elapsed_time;
+
+	gettimeofday(&t0, NULL);
+	/* total average accumulated dark current amplitude */
+	amp = CCD_NOISE;
+
+	noisearr = (float *) calloc(sizeof(float), RD_NOISE_SAMPLES);
+	if (!noisearr) {
+		perror("malloc");
+		exit(-1);
+	}
+
+	for (i = 0; i < RD_NOISE_SAMPLES; i++) {
+		/* use the square of the amplitude to scale the noise */
+		noisearr[i] =  amp + sqrtf(amp) * sigma * sim_rand_gauss();
+		noisearr[i]*= CDD_RESP_uV_e;	/* scale to voltage-equivalent */
+	}
+
+
+	/* add noise */
+	for (i = 0; i < n; i++)
+		ccd[i] += noisearr[rand() % (RD_NOISE_SAMPLES + 1)];
+
+	free(noisearr);
+
+	/* time elapsed in ms */
+	gettimeofday(&t, NULL);
+	elapsed_time  = (t.tv_sec  - t0.tv_sec)  * 1000.0;
+	elapsed_time += (t.tv_usec - t0.tv_usec) / 1000.0;
+	printf("readout noise in %g ms\n", elapsed_time);
+}
+
+
+
+
+static void ccd_sim_clear(void)
+{
+	size_t n = FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS * sizeof(uint16_t);
+
+	memset(CCD2E, 0, n);
+	memset(CCD2F, 0, n);
+	memset(CCD4E, 0, n);
+	memset(CCD4F, 0, n);
+}
+
+static void ccd_sim_refresh(void)
+{
+	struct timeval t0, t;
+	double elapsed_time;
+
+
+	gettimeofday(&t0, NULL);
+
+	ccd_sim_clear();
+
+	if (CFG_SIM_DARK)
+		ccd_sim_add_dark(4000);
+
+	ccd_sim_add_swcx(4000);	/* fixed 4s for now */
+	ccd_sim_add_sxrb(4000);
+	ccd_sim_add_particles(40000);	/* 40 seconds for lots of cosmics */
+
+
+	/* time elapsed in ms */
+	gettimeofday(&t, NULL);
+	elapsed_time  = (t.tv_sec  - t0.tv_sec)  * 1000.0;
+	elapsed_time += (t.tv_usec - t0.tv_usec) / 1000.0;
+	printf("ccd refresh in %g ms\n", elapsed_time);
+
+
+	save_fits("!CCD2E.fits", CCD2E, FEE_CCD_IMG_SEC_ROWS, FEE_CCD_IMG_SEC_COLS);
+}
+/* end ccd sim */
+
+
+
+
 
 
 
@@ -542,6 +1135,8 @@ static uint16_t *fee_sim_get_ft_data(uint16_t *ccd, size_t rows, size_t cols,
 	uint16_t *buf;
 	uint16_t *acc;
 
+	struct timeval t0, t;
+	double elapsed_time;
 
 	/* we need a cleared buffer to accumulate the bins */
 	buf = calloc(sizeof(uint16_t), rows * cols);
@@ -562,6 +1157,7 @@ static uint16_t *fee_sim_get_ft_data(uint16_t *ccd, size_t rows, size_t cols,
 		exit(-1);
 	}
 
+	gettimeofday(&t0, NULL);
 
 	/* the binned data contain overscan in the real FEE, i.e. the "edge"
 	 * pixels contain CCD bias values, but we just ignore those
@@ -586,11 +1182,10 @@ static uint16_t *fee_sim_get_ft_data(uint16_t *ccd, size_t rows, size_t cols,
 			 * next row; note that the original number of rows
 			 * is required, otherwise the data would be skewed
 			 */
-			size_t y0 = y *  FEE_CCD_IMG_SEC_COLS + i * rows;
+			size_t y0 = (y * bins + i) * FEE_CCD_IMG_SEC_COLS;
 
-			for (j = 0; j < FEE_CCD_IMG_SEC_COLS; j++) {
+			for (j = 0; j < FEE_CCD_IMG_SEC_COLS; j++)
 				acc[j] += ccd[y0 + j];
-			}
 
 		}
 
@@ -604,6 +1199,11 @@ static uint16_t *fee_sim_get_ft_data(uint16_t *ccd, size_t rows, size_t cols,
 
 	}
 
+	/* time in ms  */
+	gettimeofday(&t, NULL);
+	elapsed_time  = (t.tv_sec  - t0.tv_sec)  * 1000.0;
+	elapsed_time += (t.tv_usec - t0.tv_usec) / 1000.0;
+	printf("rebinned in %g ms\n", elapsed_time);
 
 	free(acc);
 
@@ -622,6 +1222,7 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 	uint16_t readout;
 
 
+	ccd_sim_refresh();	/* XXX not here, just testing */
 	switch (smile_fee_get_ccd_mode2_config()) {
 
 	case FEE_MODE2_NOBIN:
@@ -653,22 +1254,33 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 	readout = smile_fee_get_readout_node_sel();
 
 
-	if (readout & FEE_READOUT_NODE_E2)
+	if (readout & FEE_READOUT_NODE_E2) {
 		E2 = fee_sim_get_ft_data(CCD2E, rows, cols, bins);
+		ccd_sim_add_rd_noise(E2, rows * cols);
+	}
 
-	if (readout & FEE_READOUT_NODE_F2)
+	if (readout & FEE_READOUT_NODE_F2) {
 		F2 = fee_sim_get_ft_data(CCD2F, rows, cols, bins);
+		ccd_sim_add_rd_noise(F2, rows * cols);
+	}
 
-	if (readout & FEE_READOUT_NODE_E4)
+	if (readout & FEE_READOUT_NODE_E4) {
 		E4 = fee_sim_get_ft_data(CCD4E, rows, cols, bins);
+		ccd_sim_add_rd_noise(E4, rows * cols);
+	}
 
-	if (readout & FEE_READOUT_NODE_F4)
+	if (readout & FEE_READOUT_NODE_F4) {
 		F4 = fee_sim_get_ft_data(CCD4F, rows, cols, bins);
+		ccd_sim_add_rd_noise(F4, rows * cols);
+	}
+
 
 	fee_sim_frame_transfer(cfg, FEE_MODE_ID_FTP,
 			       (uint8_t *) E2, (uint8_t *) F2,
 			       (uint8_t *) E4, (uint8_t *) F4,
 			       sizeof(uint16_t) * rows * cols);
+
+	save_fits("!E2.fits", E2, rows, cols);
 
 	free(E2);
 	free(F2);

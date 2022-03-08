@@ -1,11 +1,11 @@
 CC               = gcc
-SOURCEDIR	 = ./ 
+SOURCEDIR	 = ./
 INCLUDES         = -I../FEE -I./ -I../GRESB
 BUILDDIR         = ./
 PATH            +=
 CFLAGS          += -O2 -W -Wall -Wextra #-Wno-unused #-Werror -pedantic
 CPPFLAGS        := $(INCLUDES) -DFEE_SIM
-LDFLAGS         := -lpthread
+LDFLAGS         := -lpthread -lm -lcfitsio
 SOURCES         := $(wildcard *.c) ../GRESB/gresb.c ../FEE/*.c
 OBJECTS         := $(patsubst %.c, $(BUILDDIR)/%.o, $(subst $(SOURCEDIR)/,, $(SOURCES)))
 TARGET          := fee_sim

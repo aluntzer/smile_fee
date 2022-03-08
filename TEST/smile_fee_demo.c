@@ -35,6 +35,8 @@
 #include <smile_fee_ctrl.h>
 #include <smile_fee_rmap.h>
 
+#include <fitsio.h>
+
 /* whatever for now ... */
 #define MAX_PAYLOAD_SIZE	4096
 
@@ -371,6 +373,17 @@ static void smile_fee_test1(void)
 	struct timeval t0, t;
 	double elapsed_time;
 
+#define FITS 1
+#if FITS
+	size_t off = 0;
+	long naxes[3];
+	long n_elem;
+	int status = 0;
+	fitsfile *ff;
+	uint16_t *buf;
+	long fpixel[3] = {1, 1, 1};
+#endif /* FITS */
+
 	printf("Test 1: 6x6 binned pattern from frame transfer pattern mode\n");
 
 
@@ -415,10 +428,10 @@ static void smile_fee_test1(void)
 
 
 	/* set frame transfer pattern mode */
-	smile_fee_set_ccd_mode_config(0x1);
+	smile_fee_set_ccd_mode_config(0x3);
 
 	/* set 6x6 binning */
-	smile_fee_set_ccd_mode2_config(0x3);
+	smile_fee_set_ccd_mode2_config(0x2);
 
 
 
@@ -446,9 +459,34 @@ static void smile_fee_test1(void)
 	/* for our (approximate) transfer time profile */
 	gettimeofday(&t0, NULL);
 
+#if FITS
+	naxes[0] = FEE_EDU_FRAME_6x6_COLS;
+	naxes[1] = FEE_EDU_FRAME_6x6_ROWS;
+	naxes[2] = 4; /* 2 ccds, 4 sides */
+	n_elem = naxes[0] * naxes[1] * naxes[2];
+	off = 0;
+	if (fits_create_file(&ff, "!dump.fits", &status)) {
+		printf("error %d\n", status);
+		exit(-1);
+	}
+
+	buf = malloc(n_elem * sizeof(uint16_t));
+	if (!buf) {
+		perror("malloc");
+		exit(-1);
+	}
+
+	if (fits_create_img(ff, USHORT_IMG, 3, naxes, &status)) {
+		printf("error %d\n", status);
+		exit(-1);
+	}
+
+
+#endif /* FITS */
+
 	while (1)
 	{
-		static int ps = 5000;
+		static int ps = 1;
 		static int pp = 0;
 		static int pckt_type_seq_cnt;
 
@@ -512,6 +550,12 @@ static void smile_fee_test1(void)
 				}
 			}
 
+#if FITS
+			if ((ssize_t) off - pkt->hdr.data_len < n_elem) {
+				memcpy(&buf[off], &pkt->data, pkt->hdr.data_len);
+				off+= pkt->hdr.data_len;
+			}
+#endif
 
 		} else if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_HK) {
 			if (ps)
@@ -545,6 +589,20 @@ static void smile_fee_test1(void)
 		if (ps < 0)
 			break;
 	}
+
+
+	if (fits_write_pix(ff, TUSHORT, fpixel, n_elem, buf, &status)) {
+		printf("error %d (%d)\n",status, __LINE__);
+		exit(-1);
+	}
+
+	if (fits_close_file(ff, &status)) {
+		printf("error %d (%d)\n",status, __LINE__);
+		exit(-1);
+	}
+
+
+	free(buf);
 
 	printf("Test1 complete\n\n");
 }
