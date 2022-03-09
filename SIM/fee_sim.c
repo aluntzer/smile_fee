@@ -97,8 +97,9 @@ struct fee_data_payload {
 /* the side dimensions of a pixel in µmn */
 #define PIXEL_LEN_um		((81.8 * 1000.) / CCD_PIX_PER_AX)
 
-/* we have 16 bit samples, but (allegedly) only 12 bits of resolution  */
-#define PIX_SATURATION		((1 << 12) - 1)
+/* we have 16 bit samples, but (allegedly) only 12 bits of resolution
+ * XXX keep it at 13 bits for the moment  */
+#define PIX_SATURATION		((1 << 13) - 1)
 
 
 /* some values from SMILE SXI CCD Testing and Calibration Event
@@ -115,7 +116,7 @@ struct fee_data_payload {
 #define SWCX_CCD_RATE_MAX	82.150
 /* soft x-ray thermal galacitc background event rate */
 #define SXRB_CCD_RATE		15.403
-/* particle background event rate (solar?) */
+/* (solar?) particle background event rate */
 #define PB_CCD_RATE_MIN		0.627
 #define PB_CCD_RATE_MAX		1.255
 /* mean point source rate over FOV */
@@ -123,9 +124,22 @@ struct fee_data_payload {
 /* 4pi cosmic ray flux (in particles per CCD as well) */
 #define COSMIC_FLUX		24.61
 
-/* we assume particle energies of 10 MeV to 10 GeV */
-#define PARTICLE_EV_MIN		1e07
-#define PARTICLE_EV_MAX		1e11
+
+/* we assume solar particle energies of 1 keV to 100 keV
+ * taken from
+ * Long-Term Fluences of Energetic Particles in the Heliosphere (Mewaldt et al)
+ *
+ * NOTE: the values for (what I assume) refer to solar wind contribution
+ * (PB_CCD_RATE_...) appear a little low, on the other hand, their
+ * direction more or less correspond to the plane fo the CCDs, since
+ * we're looking mostly in a direction which is perpendicular-ish to the Sun.
+ */
+#define SOLAR_PARTICLE_EV_MIN		1e03
+#define SOLAR_PARTICLE_EV_MAX		1e05
+
+/* we assume cosmic particle energies of 10 MeV to 10 GeV */
+#define COSMIC_PARTICLE_EV_MIN		1e07
+#define COSMIC_PARTICLE_EV_MAX		1e11
 /* energy distribution per magnitute over min (i.e. x=0, 1, 2 ...) */
 #define PARTICLE_DROPOFF	1.0		/* extra drop */
 #define PARTICLE_RATE_DROP(x)	powf(10., -(x) * PARTICLE_DROPOFF + 1.)
@@ -141,10 +155,20 @@ struct fee_data_payload {
  */
 #define PARTICLE_ENERGY_LOSS_PER_UM_EV 230.
 
+/* restrict the incident angle towards the CCD plane of the solar wind */
+#define SOLAR_WIND_EL_ANGLE_MAX	(10. / 180. * M_PI)
+/* restrict the azimuth angle in the CCD plane of the solar wind */
+#define SOLAR_WIND_AZ_ANGLE_MAX	(30. / 180. * M_PI)
+
 
 /* other sim config */
+/* maximum random scattering angle (integer degrees) for particle deflection simulation;
+ * the higher this value, the less the total probability of a deflected
+ * particle trail occuring in the CCD image
+ */
+#define RUTHERFORD_SCATTER_ANGLE_MAX	30
 /* solar activity selector, range 0-1 */
-#define SOLAR_ACT		0.5
+#define SOLAR_ACT		1.0
 /* number of pre-computed dark samples for faster simulation */
 #define DARK_SAMPLES		128
 /* simulate dark current (0/1) */
@@ -222,7 +246,7 @@ static uint16_t ccd_sim_get_swcx_ray(void)
 	float p;
 
 	/* we assume the incident x-ray energy is uniformly distributed */
-	p = fmodf(rand(), (SWCX_PHOT_EV_MAX + 1 - SWCX_PHOT_EV_MIN));
+	p = fmodf(rand(), (SWCX_PHOT_EV_MAX + 1 - SWCX_PHOT_EV_MIN) * 1000.) * 0.001;
         p += SWCX_PHOT_EV_MAX;
 	p *= e_PER_eV;
 	p *= CDD_RESP_uV_e;	/* scale to voltage-equivalent */
@@ -350,30 +374,105 @@ static void ccd_sim_add_sxrb(uint16_t tint_ms)
 
 
 /**
- * @brief get a (cosmic) particle within the given energy range distribution
+ * @brief get a particle within the given energy range distribution
  */
 
-static float ccd_sim_get_particle(void)
+static float ccd_sim_get_cosmic_particle(void)
 {
-	const float pmin = log10f(PARTICLE_EV_MIN);
-	const float pmax = log10f(PARTICLE_EV_MAX);
+	const float pmin = log10f(COSMIC_PARTICLE_EV_MIN);
+	const float pmax = log10f(COSMIC_PARTICLE_EV_MAX);
 
 	float r, p;
 
 	/* get a energy range exponent */
-	r = fmodf(rand(), (pmax + 1. - pmin));
+	r = fmodf(rand(), (pmax + 1. - pmin) * 1000.) * 0.001;
 	/* distribute to (logarithmic) particle rate */
 	r = PARTICLE_RATE_DROP(r);
 
 	/* get energy of the particle */
-	p = PARTICLE_EV_MIN + (PARTICLE_EV_MAX - PARTICLE_EV_MIN) * r;
+	p = COSMIC_PARTICLE_EV_MIN + (COSMIC_PARTICLE_EV_MAX - COSMIC_PARTICLE_EV_MIN) * r;
 	p *= e_PER_eV;
 
 	return p;
 }
 
 
-static void ccd_sim_add_particles(uint16_t tint_ms)
+/**
+ * @brief get a solar particle within the given energy range distribution
+ */
+
+static float ccd_sim_get_solar_particle(void)
+{
+	const float pmin = log10f(SOLAR_PARTICLE_EV_MIN);
+	const float pmax = log10f(SOLAR_PARTICLE_EV_MAX);
+
+	float r, p;
+
+	/* get a energy range exponent */
+	r = fmodf(rand(), (pmax + 1. - pmin) * 1000.) * 0.001;
+
+	/* we assume equal probability for solar wind components */
+
+	/* get energy of the particle */
+	p = SOLAR_PARTICLE_EV_MIN + (SOLAR_PARTICLE_EV_MAX - SOLAR_PARTICLE_EV_MIN) * r;
+	p *= e_PER_eV;
+
+	return p;
+}
+
+
+/**
+ * @brief get the scattering fraction of protons on Si atoms for
+ *	  a CCD pixel
+ *
+ * @param p_eV the energy of the particle
+ * @param theta the (minimum) scattering angle for the fraction scattered
+ *
+ * @note Rutherford scattering requires the target to only be a few µm thick
+ *	 and preferably uses alpha particles as projectiles.
+ *	 We're only interested in an approximate behaviour, so we can
+ *	 easily get away with any deviations.
+ */
+
+
+static float ccd_sim_get_scatter_fraction(float p_eV, float theta)
+{
+	float t, r;
+	float sigma;
+	float f;
+
+	/* we randomly select between hydrogen and helium cores */
+	const float zp = (float) (1 + rand() % 2);
+	const float Z  = 14.;				/* atomic number of Si */
+	const float A  = 2.* Z;				/* mass number of  Si */
+	const float rho= 2.33 * 1000.;			/* density of Si (kg/m^3) */
+	const float Zp = powf(zp, 2.) / 4.;		/* projectile charge factor */
+	const float k  = 8.9875517923e9;		/* Coloumb's constant */
+	const float e  = -1.602176634e-19;		/* electron charge */
+	const float eV = -e;				/* 1 eV in J */
+	const float NA = 6.02214076e23;			/* Avogadro's number */
+	const float L  = CCD_THICKNESS_um * 1e-6;	/* target thickness */
+
+
+	t = k * pow(e, 2.) / (p_eV * eV);
+	r = (1. + cosf(theta)) / (1. - cosf(theta));
+	sigma = M_PI * Zp * pow(Z, 2.) * pow(t, 2.) * r;
+
+	return (NA * L * rho * sigma) / (A * 1e-3);
+}
+
+/**
+ * @brief create particle traces in the CCD
+ *
+ * @param tint_ms the integration time in ms
+ * @param solar 0 = cosmics, 1 = solar
+ *
+ * @note we do Rutherford scattering in the plane of the CCD only, it
+ *	 looks nicer ;)
+ *
+ */
+
+static void ccd_sim_add_particles(uint16_t tint_ms, int solar)
 {
 	size_t n = FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS;
 	const float sigma = 1.0;
@@ -392,6 +491,9 @@ static void ccd_sim_add_particles(uint16_t tint_ms)
 
 	float *ccd;
 
+	float deflection_angle;
+	unsigned int deflection_rate;
+
 
 	ccd = (float *) calloc(sizeof(float), n);
 	if (!ccd) {
@@ -402,8 +504,10 @@ static void ccd_sim_add_particles(uint16_t tint_ms)
 	/* our event amplitude is the integration time for the configured
 	 * event rates
 	 */
-	amp = tint * (COSMIC_FLUX + PB_CCD_RATE_MIN
-		      + (PB_CCD_RATE_MAX - PB_CCD_RATE_MIN) * SOLAR_ACT);
+	if (solar)
+		amp = tint * (PB_CCD_RATE_MIN + (PB_CCD_RATE_MAX - PB_CCD_RATE_MIN) * SOLAR_ACT);
+	else
+		amp = tint * COSMIC_FLUX;
 
 	/* use the square of the amplitude to scale the noise */
 	amp = amp + sqrtf(amp) * sigma * sim_rand_gauss();
@@ -411,21 +515,44 @@ static void ccd_sim_add_particles(uint16_t tint_ms)
 	/* XXX fill both CCD sides, only single-side now */
 	for (i = 0; i < ((size_t) amp / 2); i++) {
 
+
 		/* initial particle energy */
-		p_ev = ccd_sim_get_particle();
+		if (solar)
+			p_ev = ccd_sim_get_solar_particle();
+		else
+			p_ev = ccd_sim_get_cosmic_particle();
+
+
 
 		/* pixel of particle entry into CCD */
 		x = (float) (rand() % (FEE_CCD_IMG_SEC_COLS + 1));
 		y = (float) (rand() % (FEE_CCD_IMG_SEC_ROWS + 1));
 
-		/* angle from CCD plane */
-		phi   = fmod(rand(), M_PI_2);
-		/* direction within plane */
-		theta = M_PI - fmod(rand(), 2. * M_PI);
 
+		/* angle from CCD plane */
+		if (solar) /* shallow */
+			phi = fmod(rand(), SOLAR_WIND_EL_ANGLE_MAX * 1000.) * 0.001;
+		else
+			phi = fmod(rand(), M_PI_2 * 1000. ) * 0.001;
+
+		/* direction within plane */
+		if (solar) /* just one side */
+			theta = 0.5 * SOLAR_WIND_AZ_ANGLE_MAX - fmod(rand(),  SOLAR_WIND_AZ_ANGLE_MAX * 1000.) * 0.001;
+		else	/* anywhere */
+			theta = M_PI - fmod(rand(), 2. * M_PI * 1000.) * 0.001;
+
+
+restart:
 		/* max distance traveled through ccd */
 		d = CCD_THICKNESS_um / tanf(phi);
 
+		/* get a random deflection angle */
+		deflection_angle = ((float) (1 + rand() % RUTHERFORD_SCATTER_ANGLE_MAX )) / 180. * M_PI;
+		/* our rate for rand() */
+		deflection_rate =  (unsigned int) (1.0 / ccd_sim_get_scatter_fraction(p_ev, deflection_angle));
+#if 0
+		printf("deflection rate %u angle %g frac: %g ev %g\n", deflection_rate, deflection_angle / M_PI * 180., ccd_sim_get_scatter_fraction(p_ev, deflection_angle), p_ev);
+#endif
 		/* step size in x and y direction, we compute
 		 * one pixel at a time and assume they are all cubes,
 		 * so the max diagonal is sqrt(2) * thickness for the
@@ -461,8 +588,6 @@ static void ccd_sim_add_particles(uint16_t tint_ms)
 		dy /= PIXEL_LEN_um * M_SQRT2;
 
 
-		float p0 = p_ev;
-		float d0 = d;
 		while (1) {
 
 			size_t pix;
@@ -478,17 +603,25 @@ static void ccd_sim_add_particles(uint16_t tint_ms)
 			if (d < 0.)
 				break;
 			/* could set configurable cutoff here */
-			if (d_ev < 0.)
+			if (p_ev < 0.)
 				break;
 
 			pix = (size_t) y * FEE_CCD_IMG_SEC_COLS + (size_t) x;
-			ccd[pix] += d_ev * e_PER_eV * CDD_RESP_uV_e * (p_ev/p0) * logf(d/d0);
+			ccd[pix] += d_ev * e_PER_eV * CDD_RESP_uV_e; // * (p_ev/p0) * logf(d/d0);
 
 			x += dx;
 			y += dy;
 
 			p_ev -= d_ev;
 			d -= r;
+
+			if (rand() % (deflection_rate + 1) == 0) {
+				float ratio = ((float) (rand(), 50)) * 0.01;
+				/* deflect the sucker */
+				theta += deflection_angle * ratio;
+				phi   += deflection_angle * (1. - ratio);
+				goto restart;
+			}
 
 		}
 
@@ -539,7 +672,7 @@ static void ccd_sim_add_dark(uint16_t tint_ms)
 	}
 
 	for (i = 0; i < DARK_SAMPLES; i++) {
-		noisearr[i] =  amp + fmodf(sim_rand_gauss(), CCD_DAR_NONUNI);
+		noisearr[i] =  amp + fmodf(sim_rand_gauss(), CCD_DAR_NONUNI * 1000.) * 0.001;
 		noisearr[i]*= CDD_RESP_uV_e;	/* scale to voltage-equivalent */
 	}
 
@@ -625,7 +758,9 @@ static void ccd_sim_refresh(void)
 
 	ccd_sim_add_swcx(4000);	/* fixed 4s for now */
 	ccd_sim_add_sxrb(4000);
-	ccd_sim_add_particles(40000);	/* 40 seconds for lots of cosmics */
+	/* solar and cosmic particles */
+	ccd_sim_add_particles(40000, 0);	/* 40 seconds for lots of traces */
+	ccd_sim_add_particles(40000, 1);	/* 40 seconds for lots of traces */
 
 
 	/* time elapsed in ms */
@@ -634,8 +769,6 @@ static void ccd_sim_refresh(void)
 	elapsed_time += (t.tv_usec - t0.tv_usec) / 1000.0;
 	printf("ccd refresh in %g ms\n", elapsed_time);
 
-
-	save_fits("!CCD2E.fits", CCD2E, FEE_CCD_IMG_SEC_ROWS, FEE_CCD_IMG_SEC_COLS);
 }
 /* end ccd sim */
 
@@ -1280,7 +1413,13 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 			       (uint8_t *) E4, (uint8_t *) F4,
 			       sizeof(uint16_t) * rows * cols);
 
+
+#if 1
+	/* for testing */
+	ccd_sim_add_rd_noise(CCD2E, FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS);
+	save_fits("!CCD2E.fits", CCD2E, FEE_CCD_IMG_SEC_ROWS, FEE_CCD_IMG_SEC_COLS);
 	save_fits("!E2.fits", E2, rows, cols);
+#endif
 
 	free(E2);
 	free(F2);
