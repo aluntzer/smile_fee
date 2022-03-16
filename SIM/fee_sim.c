@@ -69,6 +69,8 @@ struct fee_data_payload {
 #define SWCX_PHOT_EV_MAX	2000.0
 /* pixel responsitivity in µV/electron */
 #define CDD_RESP_uV_e		7.0
+/* the gain equivalent, currently in discrepancy to value above*/
+#define CCD_ADC_GAIN		40.
 
 /* next few characteristics are just guesses based on a
  * typical CMOS ADC 5V input range and the responsitivity above
@@ -80,7 +82,6 @@ struct fee_data_payload {
 #define CCD_DAR_NONUNI		0.05
 /* readout noise e- rms */
 #define CCD_NOISE		20.
-
 
 /* number of electrons generated per 1 eV,
  * we will assume linear behaviour */
@@ -97,9 +98,8 @@ struct fee_data_payload {
 /* the side dimensions of a pixel in µmn */
 #define PIXEL_LEN_um		((81.8 * 1000.) / CCD_PIX_PER_AX)
 
-/* we have 16 bit samples, but (allegedly) only 12 bits of resolution
- * XXX keep it at 13 bits for the moment  */
-#define PIX_SATURATION		((1 << 13) - 1)
+/* we have 16 bit ADC res(allegedly) */
+#define PIX_SATURATION		((1 << 16) - 1)
 
 
 /* some values from SMILE SXI CCD Testing and Calibration Event
@@ -162,11 +162,11 @@ struct fee_data_payload {
 
 
 /* other sim config */
-/* maximum random scattering angle (integer degrees) for particle deflection simulation;
+/* maximum random scattering angle (degrees) for particle deflection simulation;
  * the higher this value, the less the total probability of a deflected
  * particle trail occuring in the CCD image
  */
-#define RUTHERFORD_SCATTER_ANGLE_MAX	30
+#define RUTHERFORD_SCATTER_ANGLE_MAX	90
 /* solar activity selector, range 0-1 */
 #define SOLAR_ACT		1.0
 /* number of pre-computed dark samples for faster simulation */
@@ -222,6 +222,28 @@ static void save_fits(const char *name, uint16_t *buf, long rows, long cols)
 }
 
 
+/**
+ * @brief get a random number between 0 and 1 following a logarithmic
+ * distribution
+ * @note the base resolution is fixed to 1/1000
+ */
+static float sim_rand_log(void)
+{
+#define LOG_RAND_RES 1000
+	float u;
+	const float res = 1.0 / LOG_RAND_RES;
+
+	u = 1.0 - res * (rand() % LOG_RAND_RES);
+
+	return log(u) / log(res);
+}
+
+
+
+/**
+ * @brief a box-muller gaussian-like distribution
+ */
+
 static float sim_rand_gauss(void)
 {
 	static int gen;
@@ -247,9 +269,11 @@ static uint16_t ccd_sim_get_swcx_ray(void)
 
 	/* we assume the incident x-ray energy is uniformly distributed */
 	p = fmodf(rand(), (SWCX_PHOT_EV_MAX + 1 - SWCX_PHOT_EV_MIN) * 1000.) * 0.001;
-        p += SWCX_PHOT_EV_MAX;
+        p += SWCX_PHOT_EV_MIN;
 	p *= e_PER_eV;
 	p *= CDD_RESP_uV_e;	/* scale to voltage-equivalent */
+
+	printf("p %u\n", (uint16_t) p);
 
 	if (p > PIX_SATURATION)
 		return PIX_SATURATION;
@@ -441,8 +465,8 @@ static float ccd_sim_get_scatter_fraction(float p_eV, float theta)
 	float sigma;
 	float f;
 
-	/* we randomly select between hydrogen and helium cores */
-	const float zp = (float) (1 + rand() % 2);
+	/* we select between hydrogen and helium cores (~8%) */
+	const float zp = (float) ((rand() % 100) <= 8 ? 2 : 1);
 	const float Z  = 14.;				/* atomic number of Si */
 	const float A  = 2.* Z;				/* mass number of  Si */
 	const float rho= 2.33 * 1000.;			/* density of Si (kg/m^3) */
@@ -458,7 +482,12 @@ static float ccd_sim_get_scatter_fraction(float p_eV, float theta)
 	r = (1. + cosf(theta)) / (1. - cosf(theta));
 	sigma = M_PI * Zp * pow(Z, 2.) * pow(t, 2.) * r;
 
-	return (NA * L * rho * sigma) / (A * 1e-3);
+	f = (NA * L * rho * sigma) / (A * 1e-3);
+
+	if (f > 1.0)
+		return 1.0;
+
+	return f;
 }
 
 /**
@@ -466,9 +495,6 @@ static float ccd_sim_get_scatter_fraction(float p_eV, float theta)
  *
  * @param tint_ms the integration time in ms
  * @param solar 0 = cosmics, 1 = solar
- *
- * @note we do Rutherford scattering in the plane of the CCD only, it
- *	 looks nicer ;)
  *
  */
 
@@ -547,7 +573,13 @@ restart:
 		d = CCD_THICKNESS_um / tanf(phi);
 
 		/* get a random deflection angle */
+#if 1
+		/* log distribution */
+		deflection_angle = sim_rand_log() * (RUTHERFORD_SCATTER_ANGLE_MAX / 180. * M_PI);
+#else
+		/* uniform */
 		deflection_angle = ((float) (1 + rand() % RUTHERFORD_SCATTER_ANGLE_MAX )) / 180. * M_PI;
+#endif
 		/* our rate for rand() */
 		deflection_rate =  (unsigned int) (1.0 / ccd_sim_get_scatter_fraction(p_ev, deflection_angle));
 #if 0
@@ -617,9 +649,12 @@ restart:
 
 			if (rand() % (deflection_rate + 1) == 0) {
 				float ratio = ((float) (rand(), 50)) * 0.01;
+				float sign = (rand() & 0x1 ? -1.0 : 1.0);
+
 				/* deflect the sucker */
-				theta += deflection_angle * ratio;
-				phi   += deflection_angle * (1. - ratio);
+				theta += sign * deflection_angle * ratio;
+				sign = (rand() & 0x1 ? -1.0 : 1.0);
+				phi   += sign * deflection_angle * (1. - ratio);
 				goto restart;
 			}
 
