@@ -216,17 +216,60 @@ struct fee_pattern {
 
 
 /**
- * The HK packet structure is completely undocumented. All I currently
- * know is that it uses the same header as a data packet and contains
- * 144 payload bytes as of Feb. 23. 2022
+ * The HK packet is just a copy of the FEE HK registers. It uses the same
+ * header as a data packet and contains 144 payload bytes as of Feb. 23. 2022,
+ * but should be 152 bytes as per the register map v0.22.
  */
 
-#define FEE_HK_PACKET_DATA_LEN	144
+#define FEE_HK_PACKET_DATA_LEN	152
 
 __extension__
 struct fee_hk_data_payload {
-	uint8_t hk[144];
+	uint8_t hk[FEE_HK_PACKET_DATA_LEN];
 } __attribute__((packed));
+
+
+
+
+/**
+ * The FT mode frame container structure
+ */
+
+struct fee_ft_data {
+
+	struct fee_hk_data_payload hk;
+
+	uint16_t *E2;		/* the readout node buffers, if a buffer is */
+	uint16_t *F2;		/* unused, the pointer is NULL */
+	uint16_t *E4;
+	uint16_t *F4;
+
+	uint16_t *data;
+
+	size_t rows;	/* the rows and columns of each readout node buffer */
+	size_t cols;
+	size_t bins;	/* the CCD binning mode */
+
+	size_t n_elem;	/* rows * cols */
+
+	size_t n_E2;	/* the number of elements stored in each buffer */
+	size_t n_F2;
+	size_t n_E4;
+	size_t n_F4;
+
+	uint16_t readout;
+};
+
+
+
+
+
+void fee_pkt_hdr_to_cpu(struct fee_data_pkt *pkt);
+void fee_ft_aggregator_destroy(struct fee_ft_data *ft);
+struct fee_ft_data *fee_ft_aggregator_create(void);
+int fee_ft_aggregate(struct fee_ft_data *ft, struct fee_data_pkt *pkt);
+
+
 
 
 
