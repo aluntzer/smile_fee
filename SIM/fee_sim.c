@@ -273,8 +273,6 @@ static uint16_t ccd_sim_get_swcx_ray(void)
 	p *= e_PER_eV;
 	p *= CDD_RESP_uV_e;	/* scale to voltage-equivalent */
 
-	printf("p %u\n", (uint16_t) p);
-
 	if (p > PIX_SATURATION)
 		return PIX_SATURATION;
 	else
@@ -282,7 +280,7 @@ static uint16_t ccd_sim_get_swcx_ray(void)
 }
 
 
-static void ccd_sim_add_swcx(uint16_t tint_ms)
+static void ccd_sim_add_swcx(uint16_t *frame, uint16_t tint_ms)
 {
 	size_t n = FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS;
 	const float sigma = 1.0;
@@ -302,7 +300,7 @@ static void ccd_sim_add_swcx(uint16_t tint_ms)
 
 	/* use the square of the amplitude to scale the noise */
 	amp = amp + sqrtf(amp) * sigma * sim_rand_gauss();
-	/* fill CCD2 sides */
+
 	for (i = 0; i < ((size_t) amp / 2); i++) {
 
 		ray = ccd_sim_get_swcx_ray();
@@ -310,7 +308,7 @@ static void ccd_sim_add_swcx(uint16_t tint_ms)
 
 		/* trigger on random occurence (retval != 0) */
 		if (rand() % ((int) (1. / MULTIPIX_HIT_PROB))) {
-			CCD2E[pix] += ray;
+			frame[pix] += ray;
 		} else {
 			float fray = (float) ray;
 			x = pix % FEE_CCD_IMG_SEC_COLS;
@@ -334,33 +332,16 @@ static void ccd_sim_add_swcx(uint16_t tint_ms)
 				if (bleedoff < 0.05 * (float) ray)
 					bleedoff = fray;
 
-				CCD2E[pp] += bleedoff;
+				frame[pp] += bleedoff;
 				fray -= bleedoff;
 			}
 		}
-
-		/* XXX rest stays as is for the moment, just testing here */
-
-
-		ray = ccd_sim_get_swcx_ray();
-		pix = rand() % (n + 1);
-		CCD2F[pix] += ray;
-	}
-
-	/* same for CCD4 */
-
-	amp = amp + sqrt(amp) * sigma * sim_rand_gauss();
-	for (i = 0; i < ((size_t) amp / 2); i++) {
-		pix = rand() % (n + 1);
-		CCD4E[pix] += ccd_sim_get_swcx_ray();
-		pix = rand() % (n + 1);
-		CCD4F[pix] += ccd_sim_get_swcx_ray();
 	}
 }
 
 
 
-static void ccd_sim_add_sxrb(uint16_t tint_ms)
+static void ccd_sim_add_sxrb(uint16_t *frame, uint16_t tint_ms)
 {
 	size_t n = FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS;
 	const float sigma = 1.0;
@@ -379,21 +360,8 @@ static void ccd_sim_add_sxrb(uint16_t tint_ms)
 	/* use the square of the amplitude to scale the noise */
 	amp = amp + sqrtf(amp) * sigma * sim_rand_gauss();
 	/* we use the same energies as SWCX */
-	/* fill CCD2 sides */
-	for (i = 0; i < ((size_t) amp / 2); i++) {
-
-		CCD2E[rand() % (n + 1)] += ccd_sim_get_swcx_ray();
-		CCD2F[rand() % (n + 1)] += ccd_sim_get_swcx_ray();
-	}
-
-	/* same for CCD4 */
-
-	amp = amp + sqrt(amp) * sigma * sim_rand_gauss();
-	for (i = 0; i < ((size_t) amp / 2); i++) {
-
-		CCD4E[rand() % (n + 1)] += ccd_sim_get_swcx_ray();
-		CCD4F[rand() % (n + 1)] += ccd_sim_get_swcx_ray();
-	}
+	for (i = 0; i < ((size_t) amp / 2); i++)
+		frame[rand() % (n + 1)] += ccd_sim_get_swcx_ray();
 }
 
 
@@ -498,7 +466,7 @@ static float ccd_sim_get_scatter_fraction(float p_eV, float theta)
  *
  */
 
-static void ccd_sim_add_particles(uint16_t tint_ms, int solar)
+static void ccd_sim_add_particles(uint16_t *frame, uint16_t tint_ms, int solar)
 {
 	size_t n = FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS;
 	const float sigma = 1.0;
@@ -538,7 +506,6 @@ static void ccd_sim_add_particles(uint16_t tint_ms, int solar)
 	/* use the square of the amplitude to scale the noise */
 	amp = amp + sqrtf(amp) * sigma * sim_rand_gauss();
 
-	/* XXX fill both CCD sides, only single-side now */
 	for (i = 0; i < ((size_t) amp / 2); i++) {
 
 
@@ -664,12 +631,12 @@ restart:
 
 	for (i = 0; i < n; i++) {
 
-		float tot = CCD2E[i] + ccd[i];
+		float tot = frame[i] + ccd[i];
 
 		if (tot < (float) PIX_SATURATION)
-			CCD2E[i] = (uint16_t) tot;
+			frame[i] = (uint16_t) tot;
 		else /* else saturate, TODO: bleed charges (maybe) */
-			CCD2E[i] = PIX_SATURATION;
+			frame[i] = PIX_SATURATION;
 	}
 
 
@@ -783,20 +750,38 @@ static void ccd_sim_refresh(void)
 	struct timeval t0, t;
 	double elapsed_time;
 
+	uint16_t tint_ms;
+
+
 
 	gettimeofday(&t0, NULL);
 
 	ccd_sim_clear();
 
+	tint_ms = smile_fee_get_int_period();
+
 	if (CFG_SIM_DARK)
-		ccd_sim_add_dark(4000);
+		ccd_sim_add_dark(tint_ms);
 
-	ccd_sim_add_swcx(4000);	/* fixed 4s for now */
-	ccd_sim_add_sxrb(4000);
+	ccd_sim_add_swcx(CCD2E, tint_ms);
+	ccd_sim_add_swcx(CCD2F, tint_ms);
+	ccd_sim_add_swcx(CCD4E, tint_ms);
+	ccd_sim_add_swcx(CCD4F, tint_ms);
+
+	ccd_sim_add_sxrb(CCD2E, tint_ms);
+	ccd_sim_add_sxrb(CCD2F, tint_ms);
+	ccd_sim_add_sxrb(CCD4E, tint_ms);
+	ccd_sim_add_sxrb(CCD4F, tint_ms);
+
 	/* solar and cosmic particles */
-	ccd_sim_add_particles(40000, 0);	/* 40 seconds for lots of traces */
-	ccd_sim_add_particles(40000, 1);	/* 40 seconds for lots of traces */
-
+	ccd_sim_add_particles(CCD2E, tint_ms, 0);
+	ccd_sim_add_particles(CCD2E, tint_ms, 1);
+	ccd_sim_add_particles(CCD2F, tint_ms, 0);
+	ccd_sim_add_particles(CCD2F, tint_ms, 1);
+	ccd_sim_add_particles(CCD4E, tint_ms, 0);
+	ccd_sim_add_particles(CCD4E, tint_ms, 1);
+	ccd_sim_add_particles(CCD4F, tint_ms, 0);
+	ccd_sim_add_particles(CCD4F, tint_ms, 1);
 
 	/* time elapsed in ms */
 	gettimeofday(&t, NULL);
@@ -1454,6 +1439,9 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 	ccd_sim_add_rd_noise(CCD2E, FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS);
 	save_fits("!CCD2E.fits", CCD2E, FEE_CCD_IMG_SEC_ROWS, FEE_CCD_IMG_SEC_COLS);
 	save_fits("!E2.fits", E2, rows, cols);
+	ccd_sim_add_rd_noise(CCD2F, FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS);
+	save_fits("!CCD2F.fits", CCD2F, FEE_CCD_IMG_SEC_ROWS, FEE_CCD_IMG_SEC_COLS);
+	save_fits("!F2.fits", F2, rows, cols);
 #endif
 
 	free(E2);
