@@ -470,6 +470,192 @@ static void smile_fee_test1(void)
 }
 
 
+/**
+ *  procedure Test 7-9: Smile Test Plan Will_SS_V0.1 Verification No 7-9
+ *
+ * @warn this implementation does NOT upload any test image, as we use it for
+ *	 testing of our simulator, but otherwise configures an identical setup
+ *	 note that tests 7-9 only differ in the number of event pixels in the
+ *	 uploaded data
+ *
+ *  - (NOT DONE) in On-Mode, upload test image (N event images) to FEE memory
+ *
+ *  - set E&F pixel thresholds to 123	(0x7B)
+ *  - set pixel offset to 100 (0x64)
+ *  - set event packet limit to maximum	(16777215, 0xFFFFFF)
+ *  - set event detection mode:
+ *
+ *
+ *
+ *  configure FT pattern mode, binning at 6x6, packet size 778
+ *  all other parameters left at default
+ *
+ *
+ *  once, configured, set execute_op
+ *
+ *  expected reply: HK, followed by pattern data
+ *
+ */
+
+
+static void smile_fee_test789(void)
+{
+	struct timeval t0, t;
+	double elapsed_time;
+	struct fee_ft_data *ft;
+	struct fee_data_pkt *pkt;
+
+
+	printf("Tests 7-9: event detection\n");
+
+
+	/* update local configuration of all used registers
+	 * note: we naively issue syncs for all the register field names
+	 * as we use them; many of these are actually part of the same
+	 * register, but this way, we don't have to know and just
+	 * create a few more RMAP transfers.
+	 */
+	smile_fee_sync_packet_size(FEE2DPU);
+	smile_fee_sync_int_period(FEE2DPU);
+	smile_fee_sync_readout_node_sel(FEE2DPU);
+	smile_fee_sync_ccd_mode_config(FEE2DPU);
+	smile_fee_sync_readout_node_sel(FEE2DPU);
+	smile_fee_sync_ccd_mode_config(FEE2DPU);
+	smile_fee_sync_ccd_mode2_config(FEE2DPU);
+	smile_fee_sync_execute_op(FEE2DPU);
+
+	/* flush all pending transfers */
+	sync_rmap();
+
+
+	/* packet size = 778 */
+	smile_fee_set_packet_size(0x030A);
+
+	/* derived from reg. value specified in test plan (4s nominal) */
+	smile_fee_set_int_period(0x0FA0);
+
+
+	/* read both ccd2 and ccd4, E&F sides */
+	smile_fee_set_readout_node_sel(0xF);
+
+
+
+
+	/* NOTE here our configuration differs from the test in that we
+	 * configure frame transfer mode and 6x6 binning instead of
+	 * event detection simulation
+	 */
+	/* set frame transfer pattern mode */
+	smile_fee_set_ccd_mode_config(0x3);
+
+	/* set 6x6 binning, required for ED */
+	smile_fee_set_ccd_mode2_config(0x2);
+
+	 /* digitise off to disable frame data transfer (ED only) */
+	smile_fee_set_digitise_en(0);
+
+	/* enable event detection */
+	smile_fee_set_event_detection(1);
+
+	/* END of custom block */
+
+
+
+	/* set pixel thresholds */
+	/* note default 0x7b (=123) sucks, this does not work for simulated data */
+	smile_fee_set_ccd2_e_pix_threshold(1000);
+	smile_fee_set_ccd2_f_pix_threshold(1000);
+	smile_fee_set_ccd4_e_pix_threshold(1000);
+	smile_fee_set_ccd4_f_pix_threshold(1000);
+
+	/* set pixel offset */
+	smile_fee_set_pix_offset(100);			/* 0x64 */
+
+	/* set maximum number of event packets */
+	smile_fee_set_event_pkt_limit(0xFFFFFF);	/* 16777215 */
+
+
+	smile_fee_sync_ccd2_e_pix_threshold(DPU2FEE);
+	smile_fee_sync_ccd2_f_pix_threshold(DPU2FEE);
+	smile_fee_sync_ccd4_e_pix_threshold(DPU2FEE);
+	smile_fee_sync_ccd4_f_pix_threshold(DPU2FEE);
+
+	smile_fee_sync_pix_offset(DPU2FEE);
+	smile_fee_sync_event_pkt_limit(DPU2FEE);
+
+	/* same as above, just use the _sync_ calls for the
+	 * particular fields
+	 */
+	smile_fee_sync_packet_size(DPU2FEE);
+	smile_fee_sync_int_period(DPU2FEE);
+	smile_fee_sync_readout_node_sel(DPU2FEE);
+	smile_fee_sync_ccd_mode_config(DPU2FEE);
+	smile_fee_sync_readout_node_sel(DPU2FEE);
+	smile_fee_sync_ccd_mode_config(DPU2FEE);
+	smile_fee_sync_ccd_mode2_config(DPU2FEE);
+	smile_fee_sync_digitise_en(DPU2FEE);
+	smile_fee_sync_event_detection(DPU2FEE);
+
+	/* flush all pending transfers */
+	sync_rmap();
+
+	/* now trigger the operation, we do this in a separate transfer */
+	smile_fee_set_execute_op(0x1);
+	smile_fee_sync_execute_op(DPU2FEE);
+
+	sync_rmap();	/* flush */
+
+	/* for our (approximate) transfer time profile */
+	gettimeofday(&t0, NULL);
+
+	ft = fee_ft_aggregator_create();
+
+	while (1) {
+
+		int n;
+
+#if 0
+		usleep(1000);
+#endif
+
+		n  = pkt_rx(NULL);
+
+		if (n)
+			pkt = (struct fee_data_pkt *) malloc(n);
+		else
+			continue;
+
+		n = pkt_rx((uint8_t *) pkt);
+
+		if (n <= 0)
+			printf("Error in pkt_rx()\n");
+
+
+		gettimeofday(&t, NULL);
+
+		/* time in ms since execute_op */
+		elapsed_time  = (t.tv_sec  - t0.tv_sec)  * 1000.0;
+		elapsed_time += (t.tv_usec - t0.tv_usec) / 1000.0;
+
+		fee_pkt_hdr_to_cpu(pkt);
+
+
+
+		if (fee_ft_aggregate(ft, pkt) > 0)
+			break;
+
+	}
+
+	save_fits("!E2.fits", ft->E2, ft->rows, ft->cols);
+	save_fits("!E4.fits", ft->E4, ft->rows, ft->cols);
+	save_fits("!F2.fits", ft->F2, ft->rows, ft->cols);
+	save_fits("!F4.fits", ft->F4, ft->rows, ft->cols);
+
+	fee_ft_aggregator_destroy(ft);
+
+	free(pkt);
+	printf("Test789 complete\n\n");
+}
 
 
 /**
@@ -478,7 +664,10 @@ static void smile_fee_test1(void)
 
 static void smile_fee_run_tests(void)
 {
+#if 0
 	smile_fee_test1();
+#endif
+	smile_fee_test789();
 
 	printf("standing by\n");
 	while(1) usleep(1000000); /* stop here for now */

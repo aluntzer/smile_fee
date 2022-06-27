@@ -47,6 +47,7 @@ static uint16_t *CCD4E;
 static uint16_t *CCD4F;
 static uint16_t *RDO;
 
+static uint16_t frame_cntr;
 
 struct fee_data_payload {
 	struct fee_data_pkt *pkt;
@@ -828,14 +829,22 @@ static struct fee_hk_data_payload *fee_sim_create_hk_data_payload(void)
 
 
 /**
- * @brief get the current frame counter, increments once for every call
+ * @brief increment current frame counter
+ */
+
+static void fee_increment_frame_cntr(void)
+{
+	frame_cntr++;
+}
+
+
+/**
+ * @brief get the current frame counter
  */
 
 static uint16_t fee_get_frame_cntr(void)
 {
-	static uint16_t frame_cntr;
-
-	return frame_cntr++;
+	return frame_cntr;
 }
 
 
@@ -1218,6 +1227,9 @@ static void fee_sim_frame_transfer(struct sim_net_cfg *cfg,  uint8_t fee_mode,
 
 	pld = fee_sim_create_data_payload();
 
+	/* update once per CDD readout cycl */
+	fee_increment_frame_cntr();
+
 	/* required once */
 	fee_sim_hdr_set_logical_addr(&pld->pkt->hdr, DPU_LOGICAL_ADDRESS);
 	fee_sim_hdr_set_protocol_id(&pld->pkt->hdr, FEE_DATA_PROTOCOL);
@@ -1363,6 +1375,123 @@ static uint16_t *fee_sim_get_ft_data(uint16_t *ccd, size_t rows, size_t cols,
 	return buf;
 }
 
+/*
+ * 9 Event detection algorithm
+ *
+ *
+ * The EDU algorithm will be applied on a pixel-by-pixel basis, inspecting the pixels along a row. 5 rows
+ * must be observed at a time. Each pixel is inspected and if the following is true, the pixel is identified
+ * as an ‘event’:
+ * 1. The pixel contains more signal than ‘single pixel threshold’ + local signal background
+ * 2. The pixel is a local maximum with more signal when compared individually to its surrounding
+ * 8 nearest neighbours
+ *
+ *
+ * (from: SMILE SXI CCD Testing and Calibration, issue 2 rev 0)
+ *
+ *
+ * NOTE: we ignore the local background value in this implementation, as
+ *	it is close to constant, given the (alleged) characteristics of
+ *	the CCD and readout electronics
+ *	If we wanted to add extra background noise level detection, we could
+ *	for example do a median on the ring of pixels surrounding the
+ *	event candidate.
+ */
+
+static int fee_sim_check_event_pixel(struct sim_net_cfg *cfg,
+				     struct fee_event_detection *pkt, uint16_t *frame,
+				     size_t idx, size_t cols, uint16_t threshold)
+{
+	uint16_t pix;
+
+	ssize_t i, j;
+
+	size_t cnt = 0;
+	size_t ev  = 0;
+
+
+	/* central pixel */
+	pix = frame[idx];
+
+	/* below threshold, no point in doing other checks */
+	if (pix < threshold)
+		return 0;
+
+	/* collect event area into packet */
+	for (i = 2; i >= -2; i--) {
+		for (j = -2; j <= 2; j++)
+			pkt->pix[cnt++] = frame[idx + i * cols + j];
+
+	}
+
+
+	/* since this is a ring of only 8 pixels, we unroll this here
+	 * to avoid dealing with nasty indexing
+	 */
+
+	if (pkt->pix[ 6] < pix) ev++;
+	if (pkt->pix[ 7] < pix) ev++;
+	if (pkt->pix[ 8] < pix) ev++;
+	if (pkt->pix[11] < pix) ev++;
+	if (pkt->pix[13] < pix) ev++;
+	if (pkt->pix[16] < pix) ev++;
+	if (pkt->pix[17] < pix) ev++;
+	if (pkt->pix[18] < pix) ev++;
+
+	if (ev != 8)	/* no event */
+		return 0;
+
+
+	/* send event */
+	fee_sim_hdr_cpu_to_tgt(&pkt->hdr);
+	fee_send_non_rmap(cfg, (uint8_t *) pkt, sizeof(struct fee_event_detection));
+	fee_sim_hdr_tgt_to_cpu(&pkt->hdr);
+	fee_sim_hdr_inc_seq_cntr(&pkt->hdr);
+
+	return 1;
+
+}
+
+
+/**
+ *
+
+ *
+ */
+static void fee_sim_detect_events(struct sim_net_cfg *cfg,
+				  struct fee_event_detection *pkt,
+				  uint16_t *frame, size_t rows, size_t cols,
+				  uint16_t threshold)
+{
+	size_t r, c;
+
+
+	if (!frame) /* unused sides are NULL */
+		return;
+
+	/* the event detection window is a fixed 5x5 imagette with the
+	 * "event" pixel being in the centre, hence we have to shrink
+	 * the frame by a fixed 2 pixels on each side
+	 */
+
+	for (r = 2; r < (rows - 2); r++) {
+
+		size_t c0 = r * cols;
+
+		for (c = 2; c < (cols - 2); c++) {
+
+			size_t idx = c0 + c;
+
+			pkt->row = r;
+			pkt->col = c;
+			if (fee_sim_check_event_pixel(cfg, pkt, frame, idx, cols, threshold))
+					printf("event at %ld %ld, value %d\n", r, c, frame[idx]);
+		}
+	}
+
+
+
+}
 
 static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 {
@@ -1373,6 +1502,8 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 
 	size_t rows, cols, bins;
 	uint16_t readout;
+
+	struct fee_event_detection ev_pkt = {0};
 
 
 	ccd_sim_refresh();	/* XXX not here, just testing */
@@ -1427,11 +1558,42 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 		ccd_sim_add_rd_noise(F4, rows * cols);
 	}
 
+	/* transfer only when digitise is enabled */
+	if (smile_fee_get_digitise_en()) {
+		fee_sim_frame_transfer(cfg, FEE_MODE_ID_FTP,
+				       (uint8_t *) E2, (uint8_t *) F2,
+				       (uint8_t *) E4, (uint8_t *) F4,
+				       sizeof(uint16_t) * rows * cols);
+	}
 
-	fee_sim_frame_transfer(cfg, FEE_MODE_ID_FTP,
-			       (uint8_t *) E2, (uint8_t *) F2,
-			       (uint8_t *) E4, (uint8_t *) F4,
-			       sizeof(uint16_t) * rows * cols);
+	/* prep EV packet structure */
+	fee_sim_hdr_set_logical_addr(&ev_pkt.hdr, DPU_LOGICAL_ADDRESS);
+	fee_sim_hdr_set_protocol_id(&ev_pkt.hdr, FEE_DATA_PROTOCOL);
+	fee_sim_hdr_set_pkt_type(&ev_pkt.hdr, FEE_PKT_TYPE_EV_DET);
+	fee_sim_hdr_set_frame_cntr(&ev_pkt.hdr, fee_get_frame_cntr());
+	fee_sim_hdr_set_data_len(&ev_pkt.hdr, FEE_EV_DATA_LEN);
+
+	/* event detection is only done for 6x binning */
+	if (smile_fee_get_ccd_mode2_config() == FEE_MODE2_BIN6) {
+
+		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_E);
+		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_2);
+		fee_sim_detect_events(cfg, &ev_pkt, E2, rows, cols,
+				      smile_fee_get_ccd2_e_pix_threshold());
+#if 0
+		fee_sim_hdr_set_ccd_side(&pld->pkt->hdr, FEE_CCD_SIDE_E);
+		fee_sim_hdr_set_ccd_id(&pld->pkt->hdr,   FEE_CCD_ID_4);
+		fee_sim_detect_events(cfg, E4, rows, cols, smile_fee_get_ccd4_e_pix_threshold());
+
+		fee_sim_hdr_set_ccd_side(&pld->pkt->hdr, FEE_CCD_SIDE_F);
+		fee_sim_hdr_set_ccd_id(&pld->pkt->hdr,   FEE_CCD_ID_2);
+		fee_sim_detect_events(cfg, F2, rows, cols, smile_fee_get_ccd2_f_pix_threshold());
+
+		fee_sim_hdr_set_ccd_side(&pld->pkt->hdr, FEE_CCD_SIDE_F);
+		fee_sim_hdr_set_ccd_id(&pld->pkt->hdr,   FEE_CCD_ID_4);
+		fee_sim_detect_events(cfg, F4, rows, cols, smile_fee_get_ccd4_f_pix_threshold());
+#endif
+	}
 
 
 #if 1
@@ -1548,10 +1710,13 @@ static void fee_sim_exec_ft_pat_mode(struct sim_net_cfg *cfg)
 		F4 = fee_sim_gen_ft_pat(FEE_CCD_SIDE_F, FEE_CCD_ID_4, rows, cols);
 
 
-	fee_sim_frame_transfer(cfg, FEE_MODE_ID_FTP,
-			       (uint8_t *) E2, (uint8_t *) F2,
-			       (uint8_t *) E4, (uint8_t *) F4,
-			       sizeof(struct fee_pattern) * rows * cols);
+	/* transfer only when digitise is enabled */
+	if (smile_fee_get_digitise_en()) {
+		fee_sim_frame_transfer(cfg, FEE_MODE_ID_FTP,
+				       (uint8_t *) E2, (uint8_t *) F2,
+				       (uint8_t *) E4, (uint8_t *) F4,
+				       sizeof(struct fee_pattern) * rows * cols);
+	}
 
 	free(E2);
 	free(F2);

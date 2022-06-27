@@ -139,9 +139,10 @@ struct fee_data_hdr {
 #define FEE_EV_ROWS		 5
 #define FEE_EV_DET_PIXELS	25	/* 5x5 grid around event pixel */
 #define FEE_EV_PIXEL_IDX	12	/* the index of the event pixel */
+#define FEE_EV_DATA_LEN		((2 +  FEE_EV_DET_PIXELS) *  sizeof(uint16_t))
 
 __extension__
-struct fee_event_dection {
+struct fee_event_detection {
 	struct fee_data_hdr hdr;
 
 	uint16_t col;
@@ -180,6 +181,67 @@ struct fee_event_dection {
 #define FEE_EDU_FRAME_6x6_COLS		 384
 #define FEE_EDU_FRAME_24x24_ROWS	 160
 #define FEE_EDU_FRAME_24x24_COLS	  99
+
+
+
+/**
+ * the external SRAM stores for CCD E and F data; after readout with 6x6
+ * binning, the data should be in these areas, with CCD2 and CCD4 data
+ * interleaved, i.e.
+ *
+ * [31:16]	[15:0]		(start 0x00801800)
+ * CCD4_E data	CCD2_E data
+ * (...)
+ *				(stop 0x00900BFC)
+ *
+ * and
+ *
+ * [31:16]	[15:0]		(start 0x00900C00)
+ * CCD4_F data	CCD2_F data
+ * (...)
+ *				(stop 0x00BFFFC)
+ *
+ *
+ * NOTE: values and layout are from an email by Sampie; it is not known why
+ *	 the SRAM sizes are soemwhat odd. They could just represent an
+ *	 arbitrary minimum size for storing pixel data along with some
+ *	 margin
+ */
+
+#define FEE_SRAM_SIDE_E_START		0x00801800
+#define FEE_SRAM_SIDE_E_STOP		0x00900BFC
+#define FEE_SRAM_SIDE_F_START		0x00801800
+#define FEE_SRAM_SIDE_F_STOP		0x00900BFC
+
+
+
+/**
+ * the external SRAM stores for correction data
+ *
+ * row correction values:
+ * =====================
+ * [31:24]	[23:16]		[15:8]		[7:0]		(start 0x00800000)
+ * CCD4_E_ROWC	CCD4_F_ROWC	CCD2_E_ROWC	CCD2_F_ROWC
+ * (...)
+ *								(stop 0x00800FFC)
+ *	(1024 words total)
+ *
+ *
+ * column correction values:
+ * =====================
+ * [31:24]	[23:16]		[15:8]		[7:0]		(start 0x00801000)
+ * CCD4_E_COLC	CCD4_F_COLC	CCD2_E_COLC	CCD2_F_COLC
+ * (...)
+ *								(stop 0x008017FC)
+ *	(512 words total)
+ *
+ */
+
+#define FEE_SRAM_ROW_CORR_START		0x00800000
+#define FEE_SRAM_ROW_CORR_STOP		0x00800FFC
+#define FEE_SRAM_COL_CORR_START		0x00801000
+#define FEE_SRAM_COL_CORR_STOP		0x008017FC
+
 
 
 

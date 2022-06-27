@@ -273,6 +273,26 @@ int fee_ft_aggregate(struct fee_ft_data *ft, struct fee_data_pkt *pkt)
 			printf("HK packet is oversized!\n");
 			ret = -1;
 		}
+	} else if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_EV_DET) {
+
+		struct fee_event_detection *ev;
+
+		ev= (struct fee_event_detection *) pkt;
+
+		printf("Event in ");
+
+		if (pkt->hdr.type.ccd_id == FEE_CCD_ID_2)
+			printf("CDD 2 ");
+		else if (pkt->hdr.type.ccd_id == FEE_CCD_ID_4)
+			printf("CDD 4 ");
+
+		if (pkt->hdr.type.ccd_side == FEE_CCD_SIDE_E)
+			printf("Side E ");
+		else if (pkt->hdr.type.ccd_side == FEE_CCD_SIDE_F)
+			printf("Side F ");
+
+		printf("at row %d col %d, value %d\n", ev->row, ev->col, ev->pix[FEE_EV_PIXEL_IDX]);
+
 	} else {
 		printf("Unknown pkt type %d\n", pkt->hdr.fee_pkt_type);
 		ret = -1;
@@ -290,7 +310,7 @@ int fee_ft_aggregate(struct fee_ft_data *ft, struct fee_data_pkt *pkt)
  * @param pkt a struct fee_display_event
  */
 
-void fee_display_event(const struct fee_event_dection *pkt)
+void fee_display_event(const struct fee_event_detection *pkt)
 {
 	ssize_t i, j;
 
@@ -321,7 +341,7 @@ void fee_display_event(const struct fee_event_dection *pkt)
 void test_fee_display_event(void)
 {
 	ssize_t i, j;
-	struct fee_event_dection pkt;
+	struct fee_event_detection pkt;
 
 
 	pkt.col = 12;
