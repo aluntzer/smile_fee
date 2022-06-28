@@ -504,6 +504,7 @@ static void smile_fee_test789(void)
 	double elapsed_time;
 	struct fee_ft_data *ft;
 	struct fee_data_pkt *pkt;
+	int ev_cnt = 0;
 
 
 	printf("Tests 7-9: event detection\n");
@@ -640,11 +641,22 @@ static void smile_fee_test789(void)
 		fee_pkt_hdr_to_cpu(pkt);
 
 
+		if (fee_pkt_is_event(pkt)) {
+			if (fee_event_is_xray(pkt, 5000, 150*8, 200))
+				ev_cnt++;
+#if 0
+			fee_pkt_show_event(pkt);
+#endif
 
-		if (fee_ft_aggregate(ft, pkt) > 0)
+			continue;
+		}
+
+		if (fee_ft_aggregate(ft, pkt) == 1)
 			break;
 
+
 	}
+	printf("->>> %d x-ray events classified\n", ev_cnt);
 
 	save_fits("!E2.fits", ft->E2, ft->rows, ft->cols);
 	save_fits("!E4.fits", ft->E4, ft->rows, ft->cols);

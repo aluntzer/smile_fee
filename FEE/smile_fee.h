@@ -327,6 +327,13 @@ struct fee_ft_data {
 
 
 void fee_pkt_hdr_to_cpu(struct fee_data_pkt *pkt);
+
+int fee_pkt_is_event(struct fee_data_pkt *pkt);
+void fee_pkt_show_event(struct fee_data_pkt *pkt);
+
+int fee_event_is_xray(struct fee_data_pkt *pkt,
+		      uint16_t centre_th, uint32_t sum_th, uint16_t ring_th);
+
 void fee_ft_aggregator_destroy(struct fee_ft_data *ft);
 struct fee_ft_data *fee_ft_aggregator_create(void);
 int fee_ft_aggregate(struct fee_ft_data *ft, struct fee_data_pkt *pkt);

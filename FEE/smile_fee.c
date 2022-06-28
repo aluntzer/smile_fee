@@ -46,6 +46,144 @@ void fee_pkt_hdr_to_cpu(struct fee_data_pkt *pkt)
 
 
 /**
+ * @brief check if this is an event packet
+ *
+ * @returns 0 if not an event packet, bits set otherwise
+ */
+
+int fee_pkt_is_event(struct fee_data_pkt *pkt)
+{
+	if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_EV_DET)
+		return 1;
+
+	return 0;
+}
+
+
+
+/**
+ * @brief show the event info in an event packet
+ *
+ */
+
+void fee_pkt_show_event(struct fee_data_pkt *pkt)
+{
+	struct fee_event_detection *ev;
+
+
+	if (!fee_pkt_is_event(pkt))
+		return;
+
+
+	ev = (struct fee_event_detection *) pkt;
+
+	printf("Event in ");
+
+	if (pkt->hdr.type.ccd_id == FEE_CCD_ID_2)
+		printf("CDD 2 ");
+	else if (pkt->hdr.type.ccd_id == FEE_CCD_ID_4)
+		printf("CDD 4 ");
+
+	if (pkt->hdr.type.ccd_side == FEE_CCD_SIDE_E)
+		printf("Side E ");
+	else if (pkt->hdr.type.ccd_side == FEE_CCD_SIDE_F)
+		printf("Side F ");
+
+	printf("at row %d col %d, value %d\n", ev->row, ev->col, ev->pix[FEE_EV_PIXEL_IDX]);
+}
+
+
+
+/**
+ * @brief perform event classification
+ *
+ *
+ * @param centre_th the threshold above which the centre pixel is considered non-X-ray
+ * @param sum_th    the threshold above which the sum of the ring around centre is considered non-X-ray
+ * @param ring_th   the threshold of singled pixels for inclusion in event classification
+ *
+ * see TN "SMILE SXI CCD Testing and Calibration
+ * Event Detection Methodology" issue 2 rev 0, section "Data Sorting Algorithm"
+ *
+ * @returns 1 if the event is considered an X-ray, 0 otherwise
+ *
+ */
+
+int fee_event_is_xray(struct fee_data_pkt *pkt,
+		      uint16_t centre_th, uint32_t sum_th, uint16_t ring_th)
+{
+#define PIXEL_RING_COUNT_MAX 4
+
+	int cnt = 0;
+	uint32_t sum = 0;
+	struct fee_event_detection *ev;
+
+
+	if (!fee_pkt_is_event(pkt))
+		return 0;
+
+	ev = (struct fee_event_detection *) pkt;
+
+	if (ev->pix[FEE_EV_PIXEL_IDX] > centre_th) {
+#if 0
+		printf("Event pixel over threshold, not an x-ray\n");
+		fee_pkt_show_event(pkt);
+#endif
+		return 0;
+	}
+
+	sum += ev->pix[6];
+	sum += ev->pix[7];
+	sum += ev->pix[8];
+	sum += ev->pix[11];
+	sum += ev->pix[13];
+	sum += ev->pix[16];
+	sum += ev->pix[17];
+	sum += ev->pix[18];
+
+	if (sum > sum_th) {
+#if 0
+		printf("Ring sum (%d) over threshold, not an x-ray\n", sum);
+		fee_pkt_show_event(pkt);
+#endif
+		return 0;
+	}
+
+	if (ev->pix[6] > ring_th)
+		cnt++;
+	if (ev->pix[7] > ring_th)
+		cnt++;
+	if (ev->pix[8] > ring_th)
+		cnt++;
+	if (ev->pix[11] > ring_th)
+		cnt++;
+	if (ev->pix[13] > ring_th)
+		cnt++;
+	if (ev->pix[16] > ring_th)
+		cnt++;
+	if (ev->pix[17] > ring_th)
+		cnt++;
+	if (ev->pix[18] > ring_th)
+		cnt++;
+
+	if (cnt > PIXEL_RING_COUNT_MAX) {
+#if 0
+		printf("Too many ring pixels (%d) over threshold, not an x-ray\n", cnt);
+		fee_pkt_show_event(pkt);
+#endif
+		return 0;
+	}
+
+
+
+	return 1;
+}
+
+
+
+
+
+/**
  * @brief destroy a FT data aggregator structure
  */
 
@@ -274,25 +412,7 @@ int fee_ft_aggregate(struct fee_ft_data *ft, struct fee_data_pkt *pkt)
 			ret = -1;
 		}
 	} else if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_EV_DET) {
-
-		struct fee_event_detection *ev;
-
-		ev= (struct fee_event_detection *) pkt;
-
-		printf("Event in ");
-
-		if (pkt->hdr.type.ccd_id == FEE_CCD_ID_2)
-			printf("CDD 2 ");
-		else if (pkt->hdr.type.ccd_id == FEE_CCD_ID_4)
-			printf("CDD 4 ");
-
-		if (pkt->hdr.type.ccd_side == FEE_CCD_SIDE_E)
-			printf("Side E ");
-		else if (pkt->hdr.type.ccd_side == FEE_CCD_SIDE_F)
-			printf("Side F ");
-
-		printf("at row %d col %d, value %d\n", ev->row, ev->col, ev->pix[FEE_EV_PIXEL_IDX]);
-
+		ret = 0;	/* don't care */
 	} else {
 		printf("Unknown pkt type %d\n", pkt->hdr.fee_pkt_type);
 		ret = -1;

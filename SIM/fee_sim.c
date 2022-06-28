@@ -302,6 +302,8 @@ static void ccd_sim_add_swcx(uint16_t *frame, uint16_t tint_ms)
 	/* use the square of the amplitude to scale the noise */
 	amp = amp + sqrtf(amp) * sigma * sim_rand_gauss();
 
+	printf("SWCX: %d rays produced\n", (int) amp/2);
+
 	for (i = 0; i < ((size_t) amp / 2); i++) {
 
 		ray = ccd_sim_get_swcx_ray();
@@ -1375,6 +1377,67 @@ static uint16_t *fee_sim_get_ft_data(uint16_t *ccd, size_t rows, size_t cols,
 	return buf;
 }
 
+
+/**
+ * comparsison function for qsort
+ */
+
+int compar(const void *a, const void *b)
+{
+	return (*(uint16_t *) a - *(uint16_t *) b);
+}
+
+/**
+ * find the median (via qusort)
+ */
+
+uint16_t median(uint16_t *base, size_t nmemb)
+{
+	uint16_t med;
+
+
+	qsort(base, nmemb, sizeof(uint16_t), compar);
+
+	/* we use an approximated mean for even nmemb */
+	if (nmemb % 2)
+		med = base[nmemb / 2];
+	else
+		med = (base[nmemb / 2] + base[(nmemb / 2) + 1]) / 2;
+
+	return med;
+}
+
+
+/**
+ * find the median of the pixels marked "blue" in the outer ring to determine
+ * thelocal background as per TN "SMILE SXI CCD Testing and Calibration
+ * Event Detection Methodology" issue 2 rev 0, section "Processes in the
+ * Event Detection Unit"
+ */
+
+static uint16_t fee_sim_get_local_background(struct fee_event_detection *pkt)
+{
+	size_t cnt = 0;
+	uint16_t medpix[11];
+
+
+	medpix[cnt++] = pkt->pix[0];
+	medpix[cnt++] = pkt->pix[1];
+	medpix[cnt++] = pkt->pix[2];
+	medpix[cnt++] = pkt->pix[3];
+	medpix[cnt++] = pkt->pix[4];
+	medpix[cnt++] = pkt->pix[5];
+	medpix[cnt++] = pkt->pix[9];
+	medpix[cnt++] = pkt->pix[10];
+	medpix[cnt++] = pkt->pix[15];
+	medpix[cnt++] = pkt->pix[20];
+	medpix[cnt++] = pkt->pix[21];
+
+
+	return median(medpix, cnt);
+}
+
+
 /*
  * 9 Event detection algorithm
  *
@@ -1387,7 +1450,7 @@ static uint16_t *fee_sim_get_ft_data(uint16_t *ccd, size_t rows, size_t cols,
  * 8 nearest neighbours
  *
  *
- * (from: SMILE SXI CCD Testing and Calibration, issue 2 rev 0)
+ * (from: SMILE SXI CCD Testing and Calibration Event Detection Methodology issue 2 rev 0)
  *
  *
  * NOTE: we ignore the local background value in this implementation, as
@@ -1413,9 +1476,6 @@ static int fee_sim_check_event_pixel(struct sim_net_cfg *cfg,
 	/* central pixel */
 	pix = frame[idx];
 
-	/* below threshold, no point in doing other checks */
-	if (pix < threshold)
-		return 0;
 
 	/* collect event area into packet */
 	for (i = 2; i >= -2; i--) {
@@ -1423,6 +1483,10 @@ static int fee_sim_check_event_pixel(struct sim_net_cfg *cfg,
 			pkt->pix[cnt++] = frame[idx + i * cols + j];
 
 	}
+
+	/* below threshold, no point in doing other checks */
+	if ((fee_sim_get_local_background(pkt) + pix) < threshold)
+		return 0;
 
 
 	/* since this is a ring of only 8 pixels, we unroll this here
@@ -1454,20 +1518,25 @@ static int fee_sim_check_event_pixel(struct sim_net_cfg *cfg,
 
 
 /**
- *
-
- *
+ * @brief run event detection on a frame
  */
+
 static void fee_sim_detect_events(struct sim_net_cfg *cfg,
 				  struct fee_event_detection *pkt,
 				  uint16_t *frame, size_t rows, size_t cols,
 				  uint16_t threshold)
 {
+	size_t ev_cnt = 0;
 	size_t r, c;
+
+	struct timeval t0, t;
+	double elapsed_time;
 
 
 	if (!frame) /* unused sides are NULL */
 		return;
+
+	gettimeofday(&t0, NULL);
 
 	/* the event detection window is a fixed 5x5 imagette with the
 	 * "event" pixel being in the centre, hence we have to shrink
@@ -1484,13 +1553,25 @@ static void fee_sim_detect_events(struct sim_net_cfg *cfg,
 
 			pkt->row = r;
 			pkt->col = c;
+#if 0	/* debug */
 			if (fee_sim_check_event_pixel(cfg, pkt, frame, idx, cols, threshold))
 					printf("event at %ld %ld, value %d\n", r, c, frame[idx]);
+#else
+			if (fee_sim_check_event_pixel(cfg, pkt, frame, idx, cols, threshold))
+				ev_cnt++;
+#endif
 		}
 	}
 
+	/* time in ms  */
+	gettimeofday(&t, NULL);
+	elapsed_time  = (t.tv_sec  - t0.tv_sec)  * 1000.0;
+	elapsed_time += (t.tv_usec - t0.tv_usec) / 1000.0;
+	printf("event detection in %g ms\n", elapsed_time);
+#if 1
+	printf("SWCX event candidates detected %ld\n", ev_cnt);
 
-
+#endif
 }
 
 static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
@@ -1578,20 +1659,19 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 
 		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_E);
 		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_2);
-		fee_sim_detect_events(cfg, &ev_pkt, E2, rows, cols,
-				      smile_fee_get_ccd2_e_pix_threshold());
-#if 0
-		fee_sim_hdr_set_ccd_side(&pld->pkt->hdr, FEE_CCD_SIDE_E);
-		fee_sim_hdr_set_ccd_id(&pld->pkt->hdr,   FEE_CCD_ID_4);
-		fee_sim_detect_events(cfg, E4, rows, cols, smile_fee_get_ccd4_e_pix_threshold());
+		fee_sim_detect_events(cfg, &ev_pkt, E2, rows, cols, smile_fee_get_ccd2_e_pix_threshold());
+#if 1
+		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_E);
+		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_4);
+		fee_sim_detect_events(cfg, &ev_pkt, E4, rows, cols, smile_fee_get_ccd4_e_pix_threshold());
 
-		fee_sim_hdr_set_ccd_side(&pld->pkt->hdr, FEE_CCD_SIDE_F);
-		fee_sim_hdr_set_ccd_id(&pld->pkt->hdr,   FEE_CCD_ID_2);
-		fee_sim_detect_events(cfg, F2, rows, cols, smile_fee_get_ccd2_f_pix_threshold());
+		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_F);
+		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_2);
+		fee_sim_detect_events(cfg, &ev_pkt, F2, rows, cols, smile_fee_get_ccd2_f_pix_threshold());
 
-		fee_sim_hdr_set_ccd_side(&pld->pkt->hdr, FEE_CCD_SIDE_F);
-		fee_sim_hdr_set_ccd_id(&pld->pkt->hdr,   FEE_CCD_ID_4);
-		fee_sim_detect_events(cfg, F4, rows, cols, smile_fee_get_ccd4_f_pix_threshold());
+		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_F);
+		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_4);
+		fee_sim_detect_events(cfg, &ev_pkt, F4, rows, cols, smile_fee_get_ccd4_f_pix_threshold());
 #endif
 	}
 
