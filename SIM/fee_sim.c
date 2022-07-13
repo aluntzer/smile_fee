@@ -1452,13 +1452,6 @@ static uint16_t fee_sim_get_local_background(struct fee_event_detection *pkt)
  *
  * (from: SMILE SXI CCD Testing and Calibration Event Detection Methodology issue 2 rev 0)
  *
- *
- * NOTE: we ignore the local background value in this implementation, as
- *	it is close to constant, given the (alleged) characteristics of
- *	the CCD and readout electronics
- *	If we wanted to add extra background noise level detection, we could
- *	for example do a median on the ring of pixels surrounding the
- *	event candidate.
  */
 
 static int fee_sim_check_event_pixel(struct sim_net_cfg *cfg,
@@ -1521,10 +1514,10 @@ static int fee_sim_check_event_pixel(struct sim_net_cfg *cfg,
  * @brief run event detection on a frame
  */
 
-static void fee_sim_detect_events(struct sim_net_cfg *cfg,
-				  struct fee_event_detection *pkt,
-				  uint16_t *frame, size_t rows, size_t cols,
-				  uint16_t threshold)
+static size_t fee_sim_detect_events(struct sim_net_cfg *cfg,
+				    struct fee_event_detection *pkt,
+				    uint16_t *frame, size_t rows, size_t cols,
+				    uint16_t threshold)
 {
 	size_t ev_cnt = 0;
 	size_t r, c;
@@ -1534,7 +1527,11 @@ static void fee_sim_detect_events(struct sim_net_cfg *cfg,
 
 
 	if (!frame) /* unused sides are NULL */
-		return;
+		return 0;
+
+	/* detect only if event detection is set */
+	if (!smile_fee_get_event_detection())
+		return 0;
 
 	gettimeofday(&t0, NULL);
 
@@ -1553,6 +1550,7 @@ static void fee_sim_detect_events(struct sim_net_cfg *cfg,
 
 			pkt->row = r;
 			pkt->col = c;
+
 #if 0	/* debug */
 			if (fee_sim_check_event_pixel(cfg, pkt, frame, idx, cols, threshold))
 					printf("event at %ld %ld, value %d\n", r, c, frame[idx]);
@@ -1572,6 +1570,7 @@ static void fee_sim_detect_events(struct sim_net_cfg *cfg,
 	printf("SWCX event candidates detected %ld\n", ev_cnt);
 
 #endif
+	return ev_cnt;
 }
 
 static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
@@ -1583,6 +1582,9 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 
 	size_t rows, cols, bins;
 	uint16_t readout;
+
+	size_t E_ev_cnt = smile_fee_get_event_pkt_limit();
+	size_t F_ev_cnt = smile_fee_get_event_pkt_limit();
 
 	struct fee_event_detection ev_pkt = {0};
 
@@ -1616,36 +1618,6 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 		return;
 	}
 
-	readout = smile_fee_get_readout_node_sel();
-
-
-	if (readout & FEE_READOUT_NODE_E2) {
-		E2 = fee_sim_get_ft_data(CCD2E, rows, cols, bins);
-		ccd_sim_add_rd_noise(E2, rows * cols);
-	}
-
-	if (readout & FEE_READOUT_NODE_F2) {
-		F2 = fee_sim_get_ft_data(CCD2F, rows, cols, bins);
-		ccd_sim_add_rd_noise(F2, rows * cols);
-	}
-
-	if (readout & FEE_READOUT_NODE_E4) {
-		E4 = fee_sim_get_ft_data(CCD4E, rows, cols, bins);
-		ccd_sim_add_rd_noise(E4, rows * cols);
-	}
-
-	if (readout & FEE_READOUT_NODE_F4) {
-		F4 = fee_sim_get_ft_data(CCD4F, rows, cols, bins);
-		ccd_sim_add_rd_noise(F4, rows * cols);
-	}
-
-	/* transfer only when digitise is enabled */
-	if (smile_fee_get_digitise_en()) {
-		fee_sim_frame_transfer(cfg, FEE_MODE_ID_FTP,
-				       (uint8_t *) E2, (uint8_t *) F2,
-				       (uint8_t *) E4, (uint8_t *) F4,
-				       sizeof(uint16_t) * rows * cols);
-	}
 
 	/* prep EV packet structure */
 	fee_sim_hdr_set_logical_addr(&ev_pkt.hdr, DPU_LOGICAL_ADDRESS);
@@ -1654,27 +1626,75 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 	fee_sim_hdr_set_frame_cntr(&ev_pkt.hdr, fee_get_frame_cntr());
 	fee_sim_hdr_set_data_len(&ev_pkt.hdr, FEE_EV_DATA_LEN);
 
-	/* event detection is only done for 6x binning */
-	if (smile_fee_get_ccd_mode2_config() == FEE_MODE2_BIN6) {
 
-		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_E);
-		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_2);
-		fee_sim_detect_events(cfg, &ev_pkt, E2, rows, cols, smile_fee_get_ccd2_e_pix_threshold());
-#if 1
-		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_E);
-		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_4);
-		fee_sim_detect_events(cfg, &ev_pkt, E4, rows, cols, smile_fee_get_ccd4_e_pix_threshold());
 
-		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_F);
-		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_2);
-		fee_sim_detect_events(cfg, &ev_pkt, F2, rows, cols, smile_fee_get_ccd2_f_pix_threshold());
+	readout = smile_fee_get_readout_node_sel();
 
-		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_F);
-		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_4);
-		fee_sim_detect_events(cfg, &ev_pkt, F4, rows, cols, smile_fee_get_ccd4_f_pix_threshold());
-#endif
+
+	if (readout & FEE_READOUT_NODE_E2) {
+		E2 = fee_sim_get_ft_data(CCD2E, rows, cols, bins);
+		ccd_sim_add_rd_noise(E2, rows * cols);
+
+		/* event detection is only done for 6x binning */
+		if (smile_fee_get_ccd_mode2_config() == FEE_MODE2_BIN6) {
+			fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_E);
+			fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_2);
+			fee_sim_detect_events(cfg, &ev_pkt, E2, rows, cols, smile_fee_get_ccd2_e_pix_threshold());
+		}
+
 	}
 
+	if (readout & FEE_READOUT_NODE_F2) {
+		F2 = fee_sim_get_ft_data(CCD2F, rows, cols, bins);
+		ccd_sim_add_rd_noise(F2, rows * cols);
+
+		/* event detection is only done for 6x binning */
+		if (smile_fee_get_ccd_mode2_config() == FEE_MODE2_BIN6) {
+			fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_F);
+			fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_2);
+			fee_sim_detect_events(cfg, &ev_pkt, F2, rows, cols, smile_fee_get_ccd4_e_pix_threshold());
+		}
+	}
+
+	if (readout & FEE_READOUT_NODE_E4) {
+		E4 = fee_sim_get_ft_data(CCD4E, rows, cols, bins);
+		ccd_sim_add_rd_noise(E4, rows * cols);
+
+		/* event detection is only done for 6x binning */
+		if (smile_fee_get_ccd_mode2_config() == FEE_MODE2_BIN6) {
+			fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_E);
+			fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_4);
+			fee_sim_detect_events(cfg, &ev_pkt, E4, rows, cols, smile_fee_get_ccd2_f_pix_threshold());
+		}
+	}
+
+	if (readout & FEE_READOUT_NODE_F4) {
+		F4 = fee_sim_get_ft_data(CCD4F, rows, cols, bins);
+		ccd_sim_add_rd_noise(F4, rows * cols);
+
+		/* event detection is only done for 6x binning */
+		if (smile_fee_get_ccd_mode2_config() == FEE_MODE2_BIN6) {
+			fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_F);
+			fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_4);
+			fee_sim_detect_events(cfg, &ev_pkt, F4, rows, cols, smile_fee_get_ccd4_f_pix_threshold());
+		}
+	}
+
+	/* no FT if event detection is enabled */
+	if (!smile_fee_get_event_detection()) {
+		if (smile_fee_get_digitise_en()) {
+			/* transfer only when digitise is enabled */
+			fee_sim_frame_transfer(cfg, FEE_MODE_ID_FTP,
+					       (uint8_t *) E2, (uint8_t *) F2,
+					       (uint8_t *) E4, (uint8_t *) F4,
+					       sizeof(uint16_t) * rows * cols);
+		}
+	}
+
+	/* TODO: if event detection is active, send a last_packet
+	 * header to indicate end of frame when either the number of remaining
+	 * events to send is 0 (NOTE: this is a per-CCD limit!) OR the last frame is fully processed
+	 */
 
 #if 1
 	/* for testing */
@@ -1686,11 +1706,220 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 	save_fits("!F2.fits", F2, rows, cols);
 #endif
 
+
+#if 1
+
+	/* for testing: dump raw interleaved E/F data */
+
+	if (smile_fee_get_ccd_mode2_config() == FEE_MODE2_BIN6) {
+		if (readout == 0xF) {
+			FILE *fd;
+
+			uint16_t *px_inter;
+			size_t i;
+
+			px_inter = malloc(2*sizeof(uint16_t) * rows * cols);
+
+
+			for (i = 0; i < rows*cols; i++) {
+			       px_inter[2*i]   = (E4[i]);
+			       px_inter[2*i+1] = (E2[i]);
+			}
+
+			fd = fopen("e_raw.dat", "w");
+			fwrite((void *)px_inter, 2 * rows * cols, 2, fd);
+			fclose(fd);
+
+
+			for (i = 0; i < rows*cols; i++) {
+			       px_inter[2*i]   = (F4[i]);
+			       px_inter[2*i+1] = (F2[i]);
+			}
+
+			fd = fopen("f_raw.dat", "w");
+			fwrite((void *)px_inter, 2 * rows * cols, 2, fd);
+			fclose(fd);
+
+
+			free(px_inter);
+
+		}
+	}
+
+
+#endif
+
 	free(E2);
 	free(F2);
 	free(E4);
 	free(F4);
 }
+
+
+
+/**
+ * @brief extract interleaved image data from SRAM
+ *
+ * @note the node value must be unambiguous (i.e. just one bit set, not the
+ *	whole field)
+ */
+
+static uint16_t *fee_sim_get_sram_data(uint16_t node)
+{
+	size_t i;
+
+	uint16_t *buf;
+	uint16_t *E_buf;
+	uint16_t *F_buf;
+
+	const size_t rows = FEE_EDU_FRAME_6x6_ROWS;
+	const size_t cols = FEE_EDU_FRAME_6x6_COLS;
+
+
+	buf = malloc(sizeof(uint16_t) * rows * cols);
+	if (!buf) {
+		perror("malloc");
+		exit(-1);
+	}
+
+	/* We always re-read the SRAM mirror buffers. The ccd4 and ccd2
+	 * E and F side data are stored as interleaved 16 bit samples
+	 */
+
+	E_buf = malloc(sizeof(uint16_t) * rows * cols * 2);
+	if (!E_buf) {
+		perror("malloc");
+		exit(-1);
+	}
+
+
+	F_buf = malloc(sizeof(uint16_t) * rows * cols * 2);
+	if (!F_buf) {
+		perror("malloc");
+		exit(-1);
+	}
+
+	/* the SRAM areas for the pixel data appear slightly oversized. let's
+	 * assume the actual samples for 6x6 bin mode start at the beginning
+	 * and the remainder is just spare for margin...
+	 */
+	smile_fee_read_sram_16(E_buf, FEE_SRAM_SIDE_E_START, 2 * rows * cols);
+	smile_fee_read_sram_16(F_buf, FEE_SRAM_SIDE_F_START, 2 * rows * cols);
+
+
+	/* CCD4 pixels start at index 0 */
+	if (node == FEE_READOUT_NODE_E4) {
+		for (i = 0; i < rows * cols; i++)
+			buf[i] = E_buf[2 * i];
+	}
+
+	/* CCD2 pixels start at index 1 */
+	if (node == FEE_READOUT_NODE_E2) {
+		for (i = 0; i < rows * cols; i++)
+			buf[i] = E_buf[2 * i + 1];
+	}
+
+	/* CCD4 pixels start at index 0 */
+	if (node == FEE_READOUT_NODE_F4) {
+		for (i = 0; i < rows * cols; i++)
+			buf[i] = F_buf[2 * i];
+	}
+
+	/* CCD2 pixels start at index 1 */
+	if (node == FEE_READOUT_NODE_F2) {
+		for (i = 0; i < rows * cols; i++)
+			buf[i] = F_buf[2 * i + 1];
+	}
+
+
+	free(E_buf);
+	free(F_buf);
+
+	return buf;
+}
+
+
+
+
+
+static void fee_sim_exec_evsim_mode(struct sim_net_cfg *cfg)
+{
+	uint16_t *E2 = NULL;
+	uint16_t *F2 = NULL;
+	uint16_t *E4 = NULL;
+	uint16_t *F4 = NULL;
+
+	uint16_t readout;
+
+	size_t E_ev_cnt = smile_fee_get_event_pkt_limit();
+	size_t F_ev_cnt = smile_fee_get_event_pkt_limit();
+
+	struct fee_event_detection ev_pkt = {0};
+
+	const size_t rows = FEE_EDU_FRAME_6x6_ROWS;
+	const size_t cols = FEE_EDU_FRAME_6x6_COLS;
+
+
+	/* prep EV packet structure */
+	fee_sim_hdr_set_logical_addr(&ev_pkt.hdr, DPU_LOGICAL_ADDRESS);
+	fee_sim_hdr_set_protocol_id(&ev_pkt.hdr, FEE_DATA_PROTOCOL);
+	fee_sim_hdr_set_pkt_type(&ev_pkt.hdr, FEE_PKT_TYPE_EV_DET);
+	fee_sim_hdr_set_frame_cntr(&ev_pkt.hdr, fee_get_frame_cntr());
+	fee_sim_hdr_set_data_len(&ev_pkt.hdr, FEE_EV_DATA_LEN);
+
+
+
+	readout = smile_fee_get_readout_node_sel();
+
+
+	if (readout & FEE_READOUT_NODE_E2) {
+		E2 = fee_sim_get_sram_data(FEE_READOUT_NODE_E2);
+
+		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_E);
+		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_2);
+		fee_sim_detect_events(cfg, &ev_pkt, E2, rows, cols, smile_fee_get_ccd2_e_pix_threshold());
+
+	}
+
+	if (readout & FEE_READOUT_NODE_F2) {
+		F2 = fee_sim_get_sram_data(FEE_READOUT_NODE_F2);
+
+		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_F);
+		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_2);
+		fee_sim_detect_events(cfg, &ev_pkt, F2, rows, cols, smile_fee_get_ccd4_e_pix_threshold());
+	}
+
+	if (readout & FEE_READOUT_NODE_E4) {
+		E4 = fee_sim_get_sram_data(FEE_READOUT_NODE_E4);
+
+		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_E);
+		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_4);
+		fee_sim_detect_events(cfg, &ev_pkt, E4, rows, cols, smile_fee_get_ccd2_f_pix_threshold());
+	}
+
+	if (readout & FEE_READOUT_NODE_F4) {
+		F4 = fee_sim_get_sram_data(FEE_READOUT_NODE_F4);
+
+		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_F);
+		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_4);
+		fee_sim_detect_events(cfg, &ev_pkt, F4, rows, cols, smile_fee_get_ccd4_f_pix_threshold());
+	}
+
+
+	/* TODO: if event detection is active, send a last_packet
+	 * header to indicate end of frame when either the number of remaining
+	 * events to send is 0 (NOTE: this is a per-CCD limit!) OR the last frame is fully processed
+	 */
+
+
+	free(E2);
+	free(F2);
+	free(E4);
+	free(F4);
+}
+
+
+
 
 
 
@@ -1844,6 +2073,11 @@ static void fee_sim_exec(struct sim_net_cfg *cfg)
 	case FEE_CMD__ID_IMM_ON:
 		/* immediate on-mode, this is a command, not a mode */
 		printf("Mode %d not implemented\n", mode);
+		break;
+
+	case FEE_MODE_ID_EVSIM:
+		printf("Event detection simulation\n");
+		fee_sim_exec_evsim_mode(cfg);
 		break;
 	case FEE_MODE_ID_PTP1:
 		/* parallel trap pump mode 1 */

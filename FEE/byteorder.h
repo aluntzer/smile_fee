@@ -62,6 +62,8 @@
 #endif
 
 
+#ifndef _LINUX_BYTEORDER_LITTLE_ENDIAN_H
+
 #define ___constant_swab16(x) ((uint16_t)(			\
 	(((uint16_t)(x) & (uint16_t)0x00ffU) << 8) |		\
 	(((uint16_t)(x) & (uint16_t)0xff00U) >> 8)))
@@ -167,6 +169,7 @@ static inline void __swab32s(uint32_t *p)
 }
 
 
+#endif /*_LINUX_BYTEORDER_LITTLE_ENDIAN_H */
 
 #ifdef __BIG_ENDIAN
 
@@ -200,6 +203,7 @@ static inline void __swab32s(uint32_t *p)
 
 
 #ifdef __LITTLE_ENDIAN
+#ifndef _LINUX_BYTEORDER_LITTLE_ENDIAN_H
 
 #define __cpu_to_le16(x)   ((uint16_t)(x))
 #define __cpu_to_le32(x)   ((uint32_t)(x))
@@ -226,7 +230,7 @@ static inline void __swab32s(uint32_t *p)
 
 #define __be16_to_cpus(x) __swab16s((x))
 #define __be32_to_cpus(x) __swab32s((x))
-
+#endif /* _LINUX_BYTEORDER_LITTLE_ENDIAN_H */
 #endif /* __LITTLE_ENDIAN */
 
 

@@ -97,7 +97,7 @@ struct smile_fee_mirror {
 	uint32_t hk_reg_37;
 
 	/* arbitaray ram area */
-	/* uint8_t *sram; */
+	uint8_t *sram;
 };
 
 /* register sync */
@@ -181,6 +181,11 @@ int smile_fee_sync_pix_offset(enum sync_direction dir);
 int smile_fee_sync_event_pkt_limit(enum sync_direction dir);
 int smile_fee_sync_execute_op(enum sync_direction dir);
 int smile_fee_sync_full_sun_pix_threshold(enum sync_direction dir);
+
+
+/* SRAM */
+int smile_fee_sync_mirror_to_sram(uint32_t addr, uint32_t size, uint32_t mtu);
+int smile_fee_sync_sram_to_mirror(uint32_t addr, uint32_t size, uint32_t mtu);
 
 
 
@@ -414,6 +419,13 @@ void smile_fee_set_hk_ccd4_f_pix_full_sun(uint16_t ccd4_f_pix_full_sun);
 
 #endif /* FEE_SIM */
 
+
+/* SRAM */
+int smile_fee_read_sram(void *buf, uint32_t addr, uint32_t size);
+int smile_fee_read_sram_16(uint16_t *buf, uint32_t addr, size_t nmemb);
+int smile_fee_write_sram(void *buf, uint32_t addr, uint32_t size);
+int smile_fee_write_sram_16(uint16_t *buf, uint32_t addr, size_t nmemb);
+int smile_fee_write_sram_32(uint32_t *buf, uint32_t addr, size_t nmemb);
 
 
 /* setup */

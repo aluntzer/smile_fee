@@ -266,18 +266,6 @@ static int smile_fee_process_rx(void)
 		if (rp->data_len) {
 			memcpy(local_addr, rp->data, rp->data_len);
 
-		/* convert endianess if needed;
-		 * WARNING this assumes data_len to be a multiple of 4 */
-#if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-		{
-			unsigned int i;
-			uint32_t *p = (uint32_t *) local_addr;
-
-			for (i = 0; i < (rp->data_len / 4); i++)
-				be32_to_cpus(&p[i]);
-		}
-#endif /* __BYTE_ORDER__ */
-
 		}
 
 
@@ -390,7 +378,6 @@ int smile_fee_gen_cmd(uint16_t trans_id, uint8_t *cmd,
  * @param data_len the length of the data payload (0 for read commands)
  *
  * @note data_len must be a multiple of 4
- * @note all data is treated (and byte swapped) as 32 bit words
  *
  * @return 0 on success, otherwise error
  */
@@ -519,7 +506,6 @@ int smile_fee_sync_data(int (*fn)(uint16_t trans_id, uint8_t *cmd,
  * @param[in]  data a data buffer (may be NULL)
  * @param[in]  data_size the size of the data buffer (ignored if data is NULL)
  *
- * @note data_size must be a multiple of 4
  * @note this function will convert all data to big endian as 32 bit words
  *
  * @returns the size of the blob or 0 on error
@@ -534,10 +520,10 @@ int smile_fee_package(uint8_t *blob,
 	int has_data_crc = 0;
 	struct rmap_instruction *ri;
 
-
+#if 0
 	if (data_size & 0x3)	/* must be multiple of 4 */
 		return -1;
-
+#endif
 	if (!cmd_size) {
 		blob = NULL;
 		return 0;
@@ -581,21 +567,6 @@ int smile_fee_package(uint8_t *blob,
 
 	if (data) {
 		memcpy(&blob[cmd_size + 1], data, data_size);
-
-		/* convert endianess if needed */
-#if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
-		{
-			int i;
-			uint32_t *p = (uint32_t *) &blob[cmd_size + 1];
-
-			/* data may be misaligned. keep your fingers crossed
-			 * (we only do this on PC for testing, no worries...)
-			 */
-
-			for (i = 0; i < (data_size / 4); i++)
-				cpu_to_be32s(&p[i]);
-		}
-#endif /* __BYTE_ORDER__ */
 
 		blob[cmd_size + 1 + data_size] = rmap_crc8(&blob[cmd_size + 1], data_size);
 
@@ -705,6 +676,19 @@ void smile_fee_set_destination_key(uint8_t key)
 {
 	dst_key = key;
 }
+
+
+/**
+ * @brief get the configured data MTU
+ *
+ * @returns the mtu
+ */
+
+size_t smile_fee_get_data_mtu(void)
+{
+	return data_mtu;
+}
+
 
 
 /**

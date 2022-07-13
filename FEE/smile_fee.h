@@ -210,9 +210,11 @@ struct fee_event_detection {
 
 #define FEE_SRAM_SIDE_E_START		0x00801800
 #define FEE_SRAM_SIDE_E_STOP		0x00900BFC
-#define FEE_SRAM_SIDE_F_START		0x00801800
-#define FEE_SRAM_SIDE_F_STOP		0x00900BFC
+#define FEE_SRAM_SIDE_F_START		0x00900C00
+#define FEE_SRAM_SIDE_F_STOP		0x00BFFFFC
 
+#define FEE_SRAM_SIDE_E_SIZE		(FEE_SRAM_SIDE_E_STOP - FEE_SRAM_SIDE_E_START + 1UL)
+#define FEE_SRAM_SIDE_F_SIZE		(FEE_SRAM_SIDE_F_STOP - FEE_SRAM_SIDE_F_START + 1UL)
 
 
 /**
@@ -243,6 +245,13 @@ struct fee_event_detection {
 #define FEE_SRAM_COL_CORR_STOP		0x008017FC
 
 
+/**
+ * the SRAM start and end addresses appears to coincide with the address of
+ * FEE_SRAM_ROW_CORR_START and FEE_SRAM_SIDE_F_STOP
+ */
+#define FEE_SRAM_START			FEE_SRAM_ROW_CORR_START
+#define FEE_SRAM_END			(FEE_SRAM_SIDE_F_STOP + 1UL)
+#define FEE_SRAM_SIZE			(FEE_SRAM_END - FEE_SRAM_START)
 
 
 __extension__

@@ -57,7 +57,8 @@
 #include <smile_fee_cmd.h>
 #include <smile_fee_ctrl.h>
 #include <smile_fee_rmap.h>
-
+#include <smile_fee.h>
+#include <byteorder.h>
 
 static struct smile_fee_mirror *smile_fee;
 
@@ -69,7 +70,7 @@ static struct smile_fee_mirror *smile_fee;
 
 uint16_t smile_fee_get_vstart(void)
 {
-	return (uint16_t) (smile_fee->cfg_reg_0 & 0xFFFFUL);
+	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_0) & 0xFFFFUL);
 }
 
 
@@ -79,8 +80,12 @@ uint16_t smile_fee_get_vstart(void)
 
 void smile_fee_set_vstart(uint16_t vstart)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_0);
+
 	smile_fee->cfg_reg_0 &= ~0xFFFFUL;
 	smile_fee->cfg_reg_0 |=  0xFFFFUL & ((uint32_t) vstart);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_0);
 }
 
 /**
@@ -89,7 +94,7 @@ void smile_fee_set_vstart(uint16_t vstart)
 
 uint16_t smile_fee_get_vend(void)
 {
-	return (uint16_t) ((smile_fee->cfg_reg_0 >> 16) & 0xFFFFUL);
+	return (uint16_t) ((be32_to_cpu(smile_fee->cfg_reg_0) >> 16) & 0xFFFFUL);
 }
 
 
@@ -99,8 +104,12 @@ uint16_t smile_fee_get_vend(void)
 
 void smile_fee_set_vend(uint16_t vend)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_0);
+
 	smile_fee->cfg_reg_0 &= ~(0xFFFFUL << 16);
 	smile_fee->cfg_reg_0 |=  (0xFFFFUL & ((uint32_t) vend)) << 16;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_0);
 }
 
 
@@ -110,7 +119,7 @@ void smile_fee_set_vend(uint16_t vend)
 
 uint16_t smile_fee_get_charge_injection_width(void)
 {
-	return (uint16_t) (smile_fee->cfg_reg_1 & 0xFFFFUL);
+	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_1) & 0xFFFFUL);
 }
 
 
@@ -120,8 +129,12 @@ uint16_t smile_fee_get_charge_injection_width(void)
 
 void smile_fee_set_charge_injection_width(uint16_t width)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_1);
+
 	smile_fee->cfg_reg_1 &= ~0xFFFFUL;
 	smile_fee->cfg_reg_1 |=  0xFFFFUL & ((uint32_t) width);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_1);
 }
 
 
@@ -131,7 +144,7 @@ void smile_fee_set_charge_injection_width(uint16_t width)
 
 uint16_t smile_fee_get_charge_injection_gap(void)
 {
-	return (uint16_t) ((smile_fee->cfg_reg_1 >> 16) & 0xFFFFUL);
+	return (uint16_t) ((be32_to_cpu(smile_fee->cfg_reg_1) >> 16) & 0xFFFFUL);
 }
 
 
@@ -141,8 +154,12 @@ uint16_t smile_fee_get_charge_injection_gap(void)
 
 void smile_fee_set_charge_injection_gap(uint16_t gap)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_1);
+
 	smile_fee->cfg_reg_1 &= ~(0xFFFFUL << 16);
 	smile_fee->cfg_reg_1 |=  (0xFFFFUL & ((uint32_t) gap)) << 16;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_1);
 }
 
 /**
@@ -151,7 +168,7 @@ void smile_fee_set_charge_injection_gap(uint16_t gap)
 
 uint16_t smile_fee_get_parallel_toi_period(void)
 {
-	return (uint16_t) (smile_fee->cfg_reg_2 & 0xFFFUL);
+	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_2) & 0xFFFUL);
 }
 
 
@@ -161,8 +178,12 @@ uint16_t smile_fee_get_parallel_toi_period(void)
 
 void smile_fee_set_parallel_toi_period(uint16_t period)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_2);
+
 	smile_fee->cfg_reg_2 &= ~0xFFFUL;
 	smile_fee->cfg_reg_2 |=  0xFFFUL & ((uint32_t) period);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_2);
 }
 
 
@@ -172,7 +193,7 @@ void smile_fee_set_parallel_toi_period(uint16_t period)
 
 uint16_t smile_fee_get_parallel_clk_overlap(void)
 {
-	return (uint16_t) ((smile_fee->cfg_reg_2 >> 12) & 0xFFFUL);
+	return (uint16_t) ((be32_to_cpu(smile_fee->cfg_reg_2) >> 12) & 0xFFFUL);
 }
 
 
@@ -182,8 +203,12 @@ uint16_t smile_fee_get_parallel_clk_overlap(void)
 
 void smile_fee_set_parallel_clk_overlap(uint16_t overlap)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_2);
+
 	smile_fee->cfg_reg_2 &= ~(0xFFFUL << 12);
 	smile_fee->cfg_reg_2 |=  (0xFFFUL & ((uint32_t) overlap)) << 12;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_2);
 }
 
 
@@ -200,11 +225,14 @@ uint32_t smile_fee_get_ccd_readout(uint32_t ccd_id)
 	/* this was a pretty weird change in the reg map document as of v0.22
 	 * now the reg is interpreted as: 1 == CCD2, all others == CCD4
 	 */
-	if (ccd_id == 1)
-		return (smile_fee->cfg_reg_2 >> 24) & (1 << (ccd_id - 1));
 
-	return (smile_fee->cfg_reg_2 >> 24) & !1;
+	if (!ccd_id)
+		return 0;
 
+	if (ccd_id > 2)
+		return 0;
+
+	return ((be32_to_cpu(smile_fee->cfg_reg_2)) >> 24) >> (ccd_id - 1) & 0x1;
 }
 
 
@@ -237,9 +265,12 @@ void smile_fee_set_ccd_readout(uint32_t ccd_id, uint32_t status)
 	/* note: bit index starts at 0, but ccd id starts at 1, hence the
 	 * subtraction
 	 */
+	be32_to_cpus(&smile_fee->cfg_reg_2);
 
-	smile_fee->cfg_reg_2 &= ~((status << (ccd_id - 1)) << 24);
+	smile_fee->cfg_reg_2 &= ~((0x1 << (ccd_id - 1)) << 24);
 	smile_fee->cfg_reg_2 |=  ((status << (ccd_id - 1)) << 24);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_2);
 }
 
 
@@ -250,7 +281,7 @@ void smile_fee_set_ccd_readout(uint32_t ccd_id, uint32_t status)
 
 uint16_t smile_fee_get_n_final_dump(void)
 {
-	return (uint16_t) (smile_fee->cfg_reg_3 & 0xFFFFUL);
+	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_3) & 0xFFFFUL);
 }
 
 
@@ -260,8 +291,12 @@ uint16_t smile_fee_get_n_final_dump(void)
 
 void smile_fee_set_n_final_dump(uint16_t lines)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_3);
+
 	smile_fee->cfg_reg_3 &= ~0xFFFFUL;
 	smile_fee->cfg_reg_3 |=  0xFFFFUL & ((uint32_t) lines);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_3);
 }
 
 
@@ -271,7 +306,7 @@ void smile_fee_set_n_final_dump(uint16_t lines)
 
 uint16_t smile_fee_get_h_end(void)
 {
-	return (uint16_t) ((smile_fee->cfg_reg_3 >> 16) & 0xFFFUL);
+	return (uint16_t) ((be32_to_cpu(smile_fee->cfg_reg_3) >> 16) & 0xFFFUL);
 }
 
 
@@ -281,8 +316,12 @@ uint16_t smile_fee_get_h_end(void)
 
 void smile_fee_set_h_end(uint16_t transfers)
 {
-	smile_fee->cfg_reg_2 &= ~(0xFFFUL << 16);
-	smile_fee->cfg_reg_2 |=  (0xFFFUL & ((uint32_t) transfers)) << 16;
+	be32_to_cpus(&smile_fee->cfg_reg_3);
+
+	smile_fee->cfg_reg_3 &= ~(0xFFFUL << 16);
+	smile_fee->cfg_reg_3 |=  (0xFFFUL & ((uint32_t) transfers)) << 16;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_3);
 }
 
 
@@ -296,7 +335,7 @@ void smile_fee_set_h_end(uint16_t transfers)
 
 uint32_t smile_fee_get_charge_injection(void)
 {
-	return (smile_fee->cfg_reg_3 >> 28) & 0x1UL;
+	return (be32_to_cpu(smile_fee->cfg_reg_3) >> 28) & 0x1UL;
 }
 
 
@@ -314,9 +353,12 @@ void smile_fee_set_charge_injection(uint32_t mode)
 	if (mode)
 		mode = 1;
 
+	be32_to_cpus(&smile_fee->cfg_reg_3);
 
 	smile_fee->cfg_reg_3 &= ~(0x1UL << 28);
 	smile_fee->cfg_reg_3 |=  (mode << 28);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_3);
 }
 
 
@@ -329,7 +371,7 @@ void smile_fee_set_charge_injection(uint32_t mode)
 
 uint32_t smile_fee_get_tri_level_clk(void)
 {
-	return (smile_fee->cfg_reg_3 >> 29) & 0x1UL;
+	return (be32_to_cpu(smile_fee->cfg_reg_3) >> 29) & 0x1UL;
 }
 
 
@@ -346,8 +388,12 @@ void smile_fee_set_tri_level_clk(uint32_t mode)
 		mode = 1;
 
 
+	be32_to_cpus(&smile_fee->cfg_reg_3);
+
 	smile_fee->cfg_reg_3 &= ~(0x1UL << 29);
 	smile_fee->cfg_reg_3 |=  (mode  << 29);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_3);
 }
 
 
@@ -360,7 +406,7 @@ void smile_fee_set_tri_level_clk(uint32_t mode)
 
 uint32_t smile_fee_get_img_clk_dir(void)
 {
-	return (smile_fee->cfg_reg_3 >> 30) & 0x1UL;
+	return (be32_to_cpu(smile_fee->cfg_reg_3) >> 30) & 0x1UL;
 }
 
 
@@ -378,8 +424,12 @@ void smile_fee_set_img_clk_dir(uint32_t mode)
 		mode = 1;
 
 
+	be32_to_cpus(&smile_fee->cfg_reg_3);
+
 	smile_fee->cfg_reg_3 &= ~(0x1UL << 30);
 	smile_fee->cfg_reg_3 |=  (mode  << 30);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_3);
 }
 
 
@@ -392,7 +442,7 @@ void smile_fee_set_img_clk_dir(uint32_t mode)
 
 uint32_t smile_fee_get_reg_clk_dir(void)
 {
-	return (smile_fee->cfg_reg_3 >> 31) & 0x1UL;
+	return (be32_to_cpu(smile_fee->cfg_reg_3) >> 31) & 0x1UL;
 }
 
 
@@ -409,8 +459,12 @@ void smile_fee_set_reg_clk_dir(uint32_t mode)
 		mode = 1;
 
 
+	be32_to_cpus(&smile_fee->cfg_reg_3);
+
 	smile_fee->cfg_reg_3 &= ~(0x1UL << 31);
 	smile_fee->cfg_reg_3 |=  (mode  << 31);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_3);
 }
 
 
@@ -423,7 +477,7 @@ void smile_fee_set_reg_clk_dir(uint32_t mode)
 
 uint16_t smile_fee_get_packet_size(void)
 {
-	return (uint16_t) (smile_fee->cfg_reg_4 & 0xFFFFUL);
+	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_4) & 0xFFFFUL);
 }
 
 /**
@@ -435,8 +489,12 @@ uint16_t smile_fee_get_packet_size(void)
 
 void smile_fee_set_packet_size(uint16_t pkt_size)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_4);
+
 	smile_fee->cfg_reg_4 &= ~0xFFFFUL;
 	smile_fee->cfg_reg_4 |=  0xFFFFUL & ((uint32_t) pkt_size);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_4);
 }
 
 
@@ -446,7 +504,7 @@ void smile_fee_set_packet_size(uint16_t pkt_size)
 
 uint16_t smile_fee_get_int_period(void)
 {
-	return (uint16_t) ((smile_fee->cfg_reg_4 >> 16) & 0xFFFFUL);
+	return (uint16_t) ((be32_to_cpu(smile_fee->cfg_reg_4) >> 16) & 0xFFFFUL);
 }
 
 
@@ -456,8 +514,12 @@ uint16_t smile_fee_get_int_period(void)
 
 void smile_fee_set_int_period(uint16_t period)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_4);
+
 	smile_fee->cfg_reg_4 &= ~(0xFFFFUL << 16);
 	smile_fee->cfg_reg_4 |=  (0xFFFFUL & ((uint32_t) period)) << 16;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_4);
 }
 
 #if 0
@@ -467,7 +529,7 @@ void smile_fee_set_int_period(uint16_t period)
 
 uint32_t smile_fee_get_trap_pumping_dwell_counter(void)
 {
-	return smile_fee->cfg_reg_5 & 0xFFFFFUL;
+	return be32_to_cpu(smile_fee->cfg_reg_5) & 0xFFFFFUL;
 }
 
 
@@ -479,8 +541,12 @@ uint32_t smile_fee_get_trap_pumping_dwell_counter(void)
 
 void smile_fee_set_trap_pumping_dwell_counter(uint32_t dwell_counter)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_5);
+
 	smile_fee->cfg_reg_5 &= ~0xFFFFFUL;
 	smile_fee->cfg_reg_5 |=  0xFFFFFUL & dwell_counter;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_5);
 }
 #endif /* 0 */
 
@@ -493,7 +559,7 @@ void smile_fee_set_trap_pumping_dwell_counter(uint32_t dwell_counter)
 
 uint32_t smile_fee_get_sync_sel(void)
 {
-	return (smile_fee->cfg_reg_5 >> 20) & 0x1UL;
+	return (be32_to_cpu(smile_fee->cfg_reg_5) >> 20) & 0x1UL;
 }
 
 
@@ -510,8 +576,12 @@ void smile_fee_set_sync_sel(uint32_t mode)
 		mode = 1;
 
 
+	be32_to_cpus(&smile_fee->cfg_reg_5);
+
 	smile_fee->cfg_reg_5 &= ~(0x1UL << 20);
 	smile_fee->cfg_reg_5 |=  (mode  << 20);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_5);
 }
 
 
@@ -524,7 +594,7 @@ void smile_fee_set_sync_sel(uint32_t mode)
 
 uint32_t smile_fee_get_digitise_en(void)
 {
-	return (smile_fee->cfg_reg_5 >> 23) & 0x1UL;
+	return (be32_to_cpu(smile_fee->cfg_reg_5) >> 23) & 0x1UL;
 }
 
 
@@ -541,8 +611,12 @@ void smile_fee_set_digitise_en(uint32_t mode)
 		mode = 1;
 
 
+	be32_to_cpus(&smile_fee->cfg_reg_5);
+
 	smile_fee->cfg_reg_5 &= ~(0x1UL << 23);
 	smile_fee->cfg_reg_5 |=  (mode  << 23);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_5);
 }
 
 
@@ -555,7 +629,7 @@ void smile_fee_set_digitise_en(uint32_t mode)
 
 uint32_t smile_fee_get_correction_bypass(void)
 {
-	return (smile_fee->cfg_reg_5 >> 24) & 0x1UL;
+	return (be32_to_cpu(smile_fee->cfg_reg_5) >> 24) & 0x1UL;
 }
 
 
@@ -572,8 +646,12 @@ void smile_fee_set_correction_bypass(uint32_t mode)
 		mode = 1;
 
 
+	be32_to_cpus(&smile_fee->cfg_reg_5);
+
 	smile_fee->cfg_reg_5 &= ~(0x1UL << 24);
 	smile_fee->cfg_reg_5 |=  (mode  << 24);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_5);
 }
 
 
@@ -585,7 +663,7 @@ void smile_fee_set_correction_bypass(uint32_t mode)
 
 uint32_t smile_fee_get_dg_en(void)
 {
-	return (smile_fee->cfg_reg_5 >> 25) & 0x1UL;
+	return (be32_to_cpu(smile_fee->cfg_reg_5) >> 25) & 0x1UL;
 }
 
 
@@ -601,8 +679,12 @@ void smile_fee_set_dg_en(uint32_t mode)
 		mode = 1;
 
 
+	be32_to_cpus(&smile_fee->cfg_reg_5);
+
 	smile_fee->cfg_reg_5 &= ~(0x1UL << 25);
 	smile_fee->cfg_reg_5 |=  (mode  << 25);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_5);
 }
 
 #if 0
@@ -612,7 +694,7 @@ void smile_fee_set_dg_en(uint32_t mode)
 
 uint16_t smile_fee_get_trap_pumping_shuffle_counter(void)
 {
-	return (uint16_t) (smile_fee->cfg_reg_6 & 0xFFFFUL);
+	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_6) & 0xFFFFUL);
 }
 
 
@@ -623,8 +705,12 @@ uint16_t smile_fee_get_trap_pumping_shuffle_counter(void)
 
 void smile_fee_set_trap_pumping_shuffle_counter(uint16_t shuffle_counter)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_6);
+
 	smile_fee->cfg_reg_6 &= ~0xFFFFUL;
 	smile_fee->cfg_reg_6 |=  0xFFFFUL & ((uint32_t) shuffle_counter);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_6);
 }
 #endif /* 0 */
 
@@ -640,7 +726,7 @@ void smile_fee_set_trap_pumping_shuffle_counter(uint16_t shuffle_counter)
 
 uint32_t smile_fee_get_clear_full_sun_counters(void)
 {
-	return (smile_fee->cfg_reg_5 >> 26) & 0x1UL;
+	return (be32_to_cpu(smile_fee->cfg_reg_5) >> 26) & 0x1UL;
 }
 
 
@@ -656,8 +742,12 @@ void smile_fee_set_clear_full_sun_counters(uint32_t mode)
 		mode = 1;
 
 
+	be32_to_cpus(&smile_fee->cfg_reg_5);
+
 	smile_fee->cfg_reg_5 &= ~(0x1UL << 26);
 	smile_fee->cfg_reg_5 |=  (mode  << 26);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_5);
 }
 
 
@@ -669,7 +759,7 @@ void smile_fee_set_clear_full_sun_counters(uint32_t mode)
 
 uint32_t smile_fee_get_edu_wandering_mask_en(void)
 {
-	return (smile_fee->cfg_reg_5 >> 27) & 0x1UL;
+	return (be32_to_cpu(smile_fee->cfg_reg_5) >> 27) & 0x1UL;
 }
 
 
@@ -685,8 +775,12 @@ void smile_fee_set_edu_wandering_mask_en(uint32_t mode)
 		mode = 1;
 
 
+	be32_to_cpus(&smile_fee->cfg_reg_5);
+
 	smile_fee->cfg_reg_5 &= ~(0x1UL << 27);
 	smile_fee->cfg_reg_5 |=  (mode  << 27);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_5);
 }
 
 
@@ -701,7 +795,7 @@ void smile_fee_set_edu_wandering_mask_en(uint32_t mode)
 
 uint16_t smile_fee_get_readout_node_sel(void)
 {
-	return (uint16_t) ((smile_fee->cfg_reg_5 >> 28) & 0xFUL);
+	return (uint16_t) ((be32_to_cpu(smile_fee->cfg_reg_5) >> 28) & 0xFUL);
 }
 
 
@@ -719,8 +813,13 @@ void smile_fee_set_readout_node_sel(uint32_t nodes)
 	if (!nodes)
 		return;
 
+
+	be32_to_cpus(&smile_fee->cfg_reg_5);
+
 	smile_fee->cfg_reg_5 &= ~(0xFUL << 28);
 	smile_fee->cfg_reg_5 |=  (0xFUL & nodes) << 28;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_5);
 }
 
 
@@ -732,7 +831,7 @@ void smile_fee_set_readout_node_sel(uint32_t nodes)
 
 uint32_t smile_fee_get_ccd2_vod_config(void)
 {
-	return smile_fee->cfg_reg_14;
+	return be32_to_cpu(smile_fee->cfg_reg_14);
 }
 
 
@@ -744,7 +843,11 @@ uint32_t smile_fee_get_ccd2_vod_config(void)
 
 void smile_fee_set_ccd2_vod_config(uint32_t vod)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_14);
+
 	smile_fee->cfg_reg_14 = vod;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_14);
 }
 
 
@@ -756,7 +859,7 @@ void smile_fee_set_ccd2_vod_config(uint32_t vod)
 
 uint32_t smile_fee_get_ccd4_vod_config(void)
 {
-	return smile_fee->cfg_reg_15;
+	return be32_to_cpu(smile_fee->cfg_reg_15);
 }
 
 
@@ -768,7 +871,11 @@ uint32_t smile_fee_get_ccd4_vod_config(void)
 
 void smile_fee_set_ccd4_vod_config(uint32_t vod)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_15);
+
 	smile_fee->cfg_reg_15 = vod;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_15);
 }
 
 
@@ -780,7 +887,7 @@ void smile_fee_set_ccd4_vod_config(uint32_t vod)
 
 uint32_t smile_fee_get_ccd2_vrd_config(void)
 {
-	return smile_fee->cfg_reg_16;
+	return be32_to_cpu(smile_fee->cfg_reg_16);
 }
 
 
@@ -792,7 +899,11 @@ uint32_t smile_fee_get_ccd2_vrd_config(void)
 
 void smile_fee_set_ccd2_vrd_config(uint32_t vrd)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_16);
+
 	smile_fee->cfg_reg_16 = vrd;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_16);
 }
 
 
@@ -804,7 +915,7 @@ void smile_fee_set_ccd2_vrd_config(uint32_t vrd)
 
 uint32_t smile_fee_get_ccd4_vrd_config(void)
 {
-	return smile_fee->cfg_reg_17;
+	return be32_to_cpu(smile_fee->cfg_reg_17);
 }
 
 
@@ -816,7 +927,11 @@ uint32_t smile_fee_get_ccd4_vrd_config(void)
 
 void smile_fee_set_ccd4_vrd_config(uint32_t vrd)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_17);
+
 	smile_fee->cfg_reg_17 = vrd;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_17);
 }
 
 
@@ -828,7 +943,7 @@ void smile_fee_set_ccd4_vrd_config(uint32_t vrd)
 
 uint32_t smile_fee_get_ccd2_vgd_config(void)
 {
-	return smile_fee->cfg_reg_18;
+	return be32_to_cpu(smile_fee->cfg_reg_18);
 }
 
 
@@ -840,7 +955,11 @@ uint32_t smile_fee_get_ccd2_vgd_config(void)
 
 void smile_fee_set_ccd2_vgd_config(uint32_t vgd)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_18);
+
 	smile_fee->cfg_reg_18 = vgd;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_18);
 }
 
 
@@ -852,7 +971,7 @@ void smile_fee_set_ccd2_vgd_config(uint32_t vgd)
 
 uint32_t smile_fee_get_ccd4_vgd_config(void)
 {
-	return smile_fee->cfg_reg_19;
+	return be32_to_cpu(smile_fee->cfg_reg_19);
 }
 
 
@@ -864,7 +983,11 @@ uint32_t smile_fee_get_ccd4_vgd_config(void)
 
 void smile_fee_set_ccd4_vgd_config(uint32_t vgd)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_19);
+
 	smile_fee->cfg_reg_19 = vgd;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_19);
 }
 
 
@@ -876,7 +999,7 @@ void smile_fee_set_ccd4_vgd_config(uint32_t vgd)
 
 uint32_t smile_fee_get_ccd_vog_config(void)
 {
-	return smile_fee->cfg_reg_20;
+	return be32_to_cpu(smile_fee->cfg_reg_20);
 }
 
 
@@ -888,7 +1011,11 @@ uint32_t smile_fee_get_ccd_vog_config(void)
 
 void smile_fee_set_ccd_vog_config(uint32_t vog)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_20);
+
 	smile_fee->cfg_reg_20 = vog;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_20);
 }
 
 
@@ -908,8 +1035,12 @@ uint16_t smile_fee_get_h_start(void)
 
 void smile_fee_set_h_start(uint16_t row)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_21);
+
 	smile_fee->cfg_reg_21 &= ~(0xFFFUL << 12);
 	smile_fee->cfg_reg_21 |=  (0xFFFUL & ((uint32_t) row)) << 12;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_21);
 }
 
 
@@ -941,7 +1072,7 @@ void smile_fee_set_h_start(uint16_t row)
 
 uint8_t smile_fee_get_ccd_mode_config(void)
 {
-	return (uint8_t) ((smile_fee->cfg_reg_21 >> 24) & 0xFUL);
+	return (uint8_t) ((be32_to_cpu(smile_fee->cfg_reg_21) >> 24) & 0xFUL);
 }
 
 
@@ -976,8 +1107,12 @@ uint8_t smile_fee_get_ccd_mode_config(void)
 
 void smile_fee_set_ccd_mode_config(uint8_t mode)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_21);
+
 	smile_fee->cfg_reg_21 &= ~(0xFUL << 24);
 	smile_fee->cfg_reg_21 |=  (0xFUL & ((uint32_t) mode)) << 24;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_21);
 }
 
 
@@ -992,7 +1127,7 @@ void smile_fee_set_ccd_mode_config(uint8_t mode)
 
 uint8_t smile_fee_get_ccd_mode2_config(void)
 {
-	return (uint8_t) ((smile_fee->cfg_reg_21 >> 28) & 0x3UL);
+	return (uint8_t) ((be32_to_cpu(smile_fee->cfg_reg_21) >> 28) & 0x3UL);
 }
 
 
@@ -1007,8 +1142,12 @@ uint8_t smile_fee_get_ccd_mode2_config(void)
 
 void smile_fee_set_ccd_mode2_config(uint8_t mode)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_21);
+
 	smile_fee->cfg_reg_21 &= ~(0x3UL << 28);
 	smile_fee->cfg_reg_21 |=  (0x3UL & ((uint32_t) mode)) << 28;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_21);
 }
 
 
@@ -1020,7 +1159,7 @@ void smile_fee_set_ccd_mode2_config(uint8_t mode)
 
 uint32_t smile_fee_get_event_detection(void)
 {
-	return (smile_fee->cfg_reg_21 >> 30) & 0x1UL;
+	return (be32_to_cpu(smile_fee->cfg_reg_21) >> 30) & 0x1UL;
 }
 
 
@@ -1037,8 +1176,12 @@ void smile_fee_set_event_detection(uint32_t mode)
 		mode = 1;
 
 
+	be32_to_cpus(&smile_fee->cfg_reg_21);
+
 	smile_fee->cfg_reg_21 &= ~(0x1UL << 30);
 	smile_fee->cfg_reg_21 |=  (mode  << 30);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_21);
 }
 
 
@@ -1051,7 +1194,7 @@ void smile_fee_set_event_detection(uint32_t mode)
 
 uint32_t smile_fee_get_clear_error_flag(void)
 {
-	return (smile_fee->cfg_reg_21 >> 31) & 0x1UL;
+	return (be32_to_cpu(smile_fee->cfg_reg_21) >> 31) & 0x1UL;
 }
 
 
@@ -1076,8 +1219,12 @@ void smile_fee_set_clear_error_flag(uint32_t mode)
 		mode = 1;
 
 
+	be32_to_cpus(&smile_fee->cfg_reg_21);
+
 	smile_fee->cfg_reg_21 &= ~(0x1UL << 31);
 	smile_fee->cfg_reg_21 |=  (mode  << 31);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_21);
 }
 
 
@@ -1090,7 +1237,7 @@ void smile_fee_set_clear_error_flag(uint32_t mode)
 
 uint16_t smile_fee_get_ccd2_e_pix_threshold(void)
 {
-	return (uint16_t) (smile_fee->cfg_reg_22 & 0xFFFFUL);
+	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_22) & 0xFFFFUL);
 }
 
 
@@ -1103,8 +1250,12 @@ uint16_t smile_fee_get_ccd2_e_pix_threshold(void)
 
 void smile_fee_set_ccd2_e_pix_threshold(uint16_t threshold)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_22);
+
 	smile_fee->cfg_reg_22 &= ~0xFFFFUL;
 	smile_fee->cfg_reg_22 |=  0xFFFFUL & ((uint32_t) threshold);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_22);
 }
 
 
@@ -1117,7 +1268,7 @@ void smile_fee_set_ccd2_e_pix_threshold(uint16_t threshold)
 
 uint16_t smile_fee_get_ccd2_f_pix_threshold(void)
 {
-	return (uint16_t) ((smile_fee->cfg_reg_22 >> 16) & 0xFFFFUL);
+	return (uint16_t) ((be32_to_cpu(smile_fee->cfg_reg_22) >> 16) & 0xFFFFUL);
 }
 
 
@@ -1130,8 +1281,12 @@ uint16_t smile_fee_get_ccd2_f_pix_threshold(void)
 
 void smile_fee_set_ccd2_f_pix_threshold(uint16_t threshold)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_22);
+
 	smile_fee->cfg_reg_22 &= ~(0xFFFFUL << 16);
 	smile_fee->cfg_reg_22 |=  (0xFFFFUL & ((uint32_t) threshold)) << 16;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_22);
 }
 
 
@@ -1144,7 +1299,7 @@ void smile_fee_set_ccd2_f_pix_threshold(uint16_t threshold)
 
 uint16_t smile_fee_get_ccd4_e_pix_threshold(void)
 {
-	return (uint16_t) (smile_fee->cfg_reg_23 & 0xFFFFUL);
+	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_23) & 0xFFFFUL);
 }
 
 
@@ -1157,8 +1312,12 @@ uint16_t smile_fee_get_ccd4_e_pix_threshold(void)
 
 void smile_fee_set_ccd4_e_pix_threshold(uint16_t threshold)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_23);
+
 	smile_fee->cfg_reg_23 &= ~0xFFFFUL;
 	smile_fee->cfg_reg_23 |=  0xFFFFUL & ((uint32_t) threshold);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_23);
 }
 
 
@@ -1171,7 +1330,7 @@ void smile_fee_set_ccd4_e_pix_threshold(uint16_t threshold)
 
 uint16_t smile_fee_get_ccd4_f_pix_threshold(void)
 {
-	return (uint16_t) ((smile_fee->cfg_reg_23 >> 16) & 0xFFFFUL);
+	return (uint16_t) ((be32_to_cpu(smile_fee->cfg_reg_23) >> 16) & 0xFFFFUL);
 }
 
 
@@ -1184,8 +1343,12 @@ uint16_t smile_fee_get_ccd4_f_pix_threshold(void)
 
 void smile_fee_set_ccd4_f_pix_threshold(uint16_t threshold)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_23);
+
 	smile_fee->cfg_reg_23 &= ~(0xFFFFUL << 16);
 	smile_fee->cfg_reg_23 |=  (0xFFFFUL & ((uint32_t) threshold)) << 16;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_23);
 }
 
 
@@ -1197,7 +1360,7 @@ void smile_fee_set_ccd4_f_pix_threshold(uint16_t threshold)
 
 uint8_t smile_fee_get_pix_offset(void)
 {
-	return (uint8_t) (smile_fee->cfg_reg_24 & 0xFFUL);
+	return (uint8_t) (be32_to_cpu(smile_fee->cfg_reg_24) & 0xFFUL);
 }
 
 
@@ -1209,8 +1372,12 @@ uint8_t smile_fee_get_pix_offset(void)
 
 void smile_fee_set_pix_offset(uint8_t offset)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_24);
+
 	smile_fee->cfg_reg_24 &= ~0xFFUL;
 	smile_fee->cfg_reg_24 |=  0xFFUL & ((uint32_t) offset);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_24);
 }
 
 
@@ -1222,7 +1389,7 @@ void smile_fee_set_pix_offset(uint8_t offset)
 
 uint32_t smile_fee_get_event_pkt_limit(void)
 {
-	return (uint32_t) ((smile_fee->cfg_reg_24 >> 8) & 0xFFFFFFUL);
+	return (uint32_t) ((be32_to_cpu(smile_fee->cfg_reg_24) >> 8) & 0xFFFFFFUL);
 }
 
 
@@ -1234,8 +1401,12 @@ uint32_t smile_fee_get_event_pkt_limit(void)
 
 void smile_fee_set_event_pkt_limit(uint32_t pkt_limit)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_24);
+
 	smile_fee->cfg_reg_24 &= ~(0xFFFFFFUL << 8);
 	smile_fee->cfg_reg_24 |=  (0xFFFFFFUL & ((uint32_t) pkt_limit)) << 8;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_24);
 }
 
 
@@ -1252,7 +1423,7 @@ void smile_fee_set_event_pkt_limit(uint32_t pkt_limit)
 
 uint32_t smile_fee_get_execute_op(void)
 {
-	return smile_fee->cfg_reg_25 & 0x1UL;
+	return be32_to_cpu(smile_fee->cfg_reg_25) & 0x1UL;
 }
 
 
@@ -1275,8 +1446,12 @@ void smile_fee_set_execute_op(uint32_t mode)
 		mode = 1;
 
 
+	be32_to_cpus(&smile_fee->cfg_reg_25);
+
 	smile_fee->cfg_reg_25 &= ~0x1UL;
 	smile_fee->cfg_reg_25 |= mode;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_25);
 }
 
 
@@ -1288,7 +1463,7 @@ void smile_fee_set_execute_op(uint32_t mode)
 
 uint16_t smile_fee_get_full_sun_pix_threshold(void)
 {
-	return (uint16_t) (smile_fee->cfg_reg_26 & 0xFFFFUL);
+	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_26) & 0xFFFFUL);
 }
 
 
@@ -1300,8 +1475,12 @@ uint16_t smile_fee_get_full_sun_pix_threshold(void)
 
 void smile_fee_set_full_sun_pix_threshold(uint16_t threshold)
 {
+	be32_to_cpus(&smile_fee->cfg_reg_26);
+
 	smile_fee->cfg_reg_26 &= ~0xFFFFUL;
 	smile_fee->cfg_reg_26 |= 0xFFFFUL & ((uint32_t) threshold);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_26);
 }
 
 
@@ -1313,7 +1492,7 @@ void smile_fee_set_full_sun_pix_threshold(uint16_t threshold)
 
 uint16_t smile_fee_get_hk_ccd2_ts_a(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_4 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_4) >> 16) & 0xFFFFUL;
 }
 
 
@@ -1324,8 +1503,12 @@ uint16_t smile_fee_get_hk_ccd2_ts_a(void)
 
 void smile_fee_set_hk_ccd2_ts_a(uint16_t ccd2_ts_a)
 {
+	be32_to_cpus(&smile_fee->hk_reg_4);
+
 	smile_fee->hk_reg_4 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_4 |= (0xFFFFUL & ((uint32_t) ccd2_ts_a)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_4);
 }
 #endif /* FEE_SIM */
 
@@ -1338,7 +1521,7 @@ void smile_fee_set_hk_ccd2_ts_a(uint16_t ccd2_ts_a)
 
 uint16_t smile_fee_get_hk_ccd4_ts_b(void)
 {
-	return (uint16_t) smile_fee->hk_reg_4 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_4) & 0xFFFFUL;
 }
 
 
@@ -1349,8 +1532,12 @@ uint16_t smile_fee_get_hk_ccd4_ts_b(void)
 
 void smile_fee_set_hk_ccd2_ts_b(uint16_t ccd4_ts_b)
 {
+	be32_to_cpus(&smile_fee->hk_reg_4);
+
 	smile_fee->hk_reg_4 &= ~0xFFFFUL;
 	smile_fee->hk_reg_4 |= 0xFFFFUL & (uint32_t) ccd4_ts_b;
+
+	cpu_to_be32s(&smile_fee->hk_reg_4);
 }
 #endif /* FEE_SIM */
 
@@ -1363,7 +1550,7 @@ void smile_fee_set_hk_ccd2_ts_b(uint16_t ccd4_ts_b)
 
 uint16_t smile_fee_get_hk_prt1(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_5 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_5) >> 16) & 0xFFFFUL;
 }
 
 
@@ -1374,8 +1561,12 @@ uint16_t smile_fee_get_hk_prt1(void)
 
 void smile_fee_set_hk_prt1(uint16_t prt1)
 {
+	be32_to_cpus(&smile_fee->hk_reg_5);
+
 	smile_fee->hk_reg_5 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_5 |= (0xFFFFUL & ((uint32_t) prt1)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_5);
 }
 #endif /* FEE_SIM */
 
@@ -1388,7 +1579,7 @@ void smile_fee_set_hk_prt1(uint16_t prt1)
 
 uint16_t smile_fee_get_hk_prt2(void)
 {
-	return (uint16_t) smile_fee->hk_reg_5 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_5) & 0xFFFFUL;
 }
 
 
@@ -1399,8 +1590,12 @@ uint16_t smile_fee_get_hk_prt2(void)
 
 void smile_fee_set_hk_prt2(uint16_t prt2)
 {
+	be32_to_cpus(&smile_fee->hk_reg_5);
+
 	smile_fee->hk_reg_5 &= ~0xFFFFUL;
 	smile_fee->hk_reg_5 |= 0xFFFFUL & (uint32_t) prt2;
+
+	cpu_to_be32s(&smile_fee->hk_reg_5);
 }
 #endif /* FEE_SIM */
 
@@ -1413,7 +1608,7 @@ void smile_fee_set_hk_prt2(uint16_t prt2)
 
 uint16_t smile_fee_get_hk_prt3(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_6 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_6) >> 16) & 0xFFFFUL;
 }
 
 
@@ -1424,8 +1619,12 @@ uint16_t smile_fee_get_hk_prt3(void)
 
 void smile_fee_set_hk_prt3(uint16_t prt3)
 {
+	be32_to_cpus(&smile_fee->hk_reg_6);
+
 	smile_fee->hk_reg_6 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_6 |= (0xFFFFUL & ((uint32_t) prt3)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_6);
 }
 #endif /* FEE_SIM */
 
@@ -1438,7 +1637,7 @@ void smile_fee_set_hk_prt3(uint16_t prt3)
 
 uint16_t smile_fee_get_hk_prt4(void)
 {
-	return (uint16_t) smile_fee->hk_reg_6 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_6) & 0xFFFFUL;
 }
 
 
@@ -1449,8 +1648,12 @@ uint16_t smile_fee_get_hk_prt4(void)
 
 void smile_fee_set_hk_prt4(uint16_t prt4)
 {
+	be32_to_cpus(&smile_fee->hk_reg_6);
+
 	smile_fee->hk_reg_6 &= ~0xFFFFUL;
 	smile_fee->hk_reg_6 |= 0xFFFFUL & (uint32_t) prt4;
+
+	cpu_to_be32s(&smile_fee->hk_reg_6);
 }
 #endif /* FEE_SIM */
 
@@ -1463,7 +1666,7 @@ void smile_fee_set_hk_prt4(uint16_t prt4)
 
 uint16_t smile_fee_get_hk_prt5(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_7 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_7) >> 16) & 0xFFFFUL;
 }
 
 
@@ -1474,8 +1677,12 @@ uint16_t smile_fee_get_hk_prt5(void)
 
 void smile_fee_set_hk_prt5(uint16_t prt5)
 {
+	be32_to_cpus(&smile_fee->hk_reg_7);
+
 	smile_fee->hk_reg_7 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_7 |= (0xFFFFUL & ((uint32_t) prt5)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_7);
 }
 #endif /* FEE_SIM */
 
@@ -1488,7 +1695,7 @@ void smile_fee_set_hk_prt5(uint16_t prt5)
 
 uint16_t smile_fee_get_hk_ccd4_vod_mon_e(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_8 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_8) >> 16) & 0xFFFFUL;
 }
 
 
@@ -1499,8 +1706,12 @@ uint16_t smile_fee_get_hk_ccd4_vod_mon_e(void)
 
 void smile_fee_set_hk_ccd4_vod_mon_e(uint16_t ccd4_vod_mon_e)
 {
+	be32_to_cpus(&smile_fee->hk_reg_8);
+
 	smile_fee->hk_reg_8 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_8 |=  (0xFFFFUL & ((uint32_t) ccd4_vod_mon_e)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_8);
 }
 #endif /* FEE_SIM */
 
@@ -1513,7 +1724,7 @@ void smile_fee_set_hk_ccd4_vod_mon_e(uint16_t ccd4_vod_mon_e)
 
 uint16_t smile_fee_get_hk_ccd4_vog_mon(void)
 {
-	return (uint16_t) smile_fee->hk_reg_8 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_8) & 0xFFFFUL;
 }
 
 
@@ -1524,8 +1735,12 @@ uint16_t smile_fee_get_hk_ccd4_vog_mon(void)
 
 void smile_fee_set_hk_ccd4_vog_mon(uint16_t ccd4_vog_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_8);
+
 	smile_fee->hk_reg_8 &= ~0xFFFFUL;
 	smile_fee->hk_reg_8 |=  0xFFFFUL & (uint32_t) ccd4_vog_mon;
+
+	cpu_to_be32s(&smile_fee->hk_reg_8);
 }
 #endif /* FEE_SIM */
 
@@ -1538,7 +1753,7 @@ void smile_fee_set_hk_ccd4_vog_mon(uint16_t ccd4_vog_mon)
 
 uint16_t smile_fee_get_hk_ccd4_vrd_mon_e(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_9 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_9) >> 16) & 0xFFFFUL;
 }
 
 
@@ -1549,8 +1764,12 @@ uint16_t smile_fee_get_hk_ccd4_vrd_mon_e(void)
 
 void smile_fee_set_hk_ccd4_vrd_mon_e(uint16_t ccd4_vrd_mon_e)
 {
+	be32_to_cpus(&smile_fee->hk_reg_9);
+
 	smile_fee->hk_reg_9 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_9 |=  (0xFFFFUL & ((uint32_t) ccd4_vrd_mon_e)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_9);
 }
 #endif /* FEE_SIM */
 
@@ -1563,7 +1782,7 @@ void smile_fee_set_hk_ccd4_vrd_mon_e(uint16_t ccd4_vrd_mon_e)
 
 uint16_t smile_fee_get_hk_ccd2_vod_mon(void)
 {
-	return (uint16_t) smile_fee->hk_reg_9 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_9) & 0xFFFFUL;
 }
 
 
@@ -1574,8 +1793,12 @@ uint16_t smile_fee_get_hk_ccd2_vod_mon(void)
 
 void smile_fee_set_hk_ccd2_vod_mon(uint16_t ccd2_vod_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_9);
+
 	smile_fee->hk_reg_9 &= ~0xFFFFUL;
 	smile_fee->hk_reg_9 |=  0xFFFFUL & (uint32_t) ccd2_vod_mon;
+
+	cpu_to_be32s(&smile_fee->hk_reg_9);
 }
 #endif /* FEE_SIM */
 
@@ -1588,7 +1811,7 @@ void smile_fee_set_hk_ccd2_vod_mon(uint16_t ccd2_vod_mon)
 
 uint16_t smile_fee_get_hk_ccd2_vog_mon(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_10 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_10) >> 16) & 0xFFFFUL;
 }
 
 
@@ -1599,8 +1822,12 @@ uint16_t smile_fee_get_hk_ccd2_vog_mon(void)
 
 void smile_fee_set_hk_ccd2_vog_mon(uint16_t ccd2_vrd_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_10);
+
 	smile_fee->hk_reg_10 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_10 |=  (0xFFFFUL & ((uint32_t) ccd2_vrd_mon)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_10);
 }
 #endif /* FEE_SIM */
 
@@ -1613,7 +1840,7 @@ void smile_fee_set_hk_ccd2_vog_mon(uint16_t ccd2_vrd_mon)
 
 uint16_t smile_fee_get_hk_ccd2_vrd_mon_e(void)
 {
-	return (uint16_t) smile_fee->hk_reg_10 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_10) & 0xFFFFUL;
 }
 
 
@@ -1624,8 +1851,12 @@ uint16_t smile_fee_get_hk_ccd2_vrd_mon_e(void)
 
 void smile_fee_set_hk_ccd2_vrd_mon_e(uint16_t ccd2_vrd_mon_e)
 {
+	be32_to_cpus(&smile_fee->hk_reg_10);
+
 	smile_fee->hk_reg_10 &= ~0xFFFFUL;
 	smile_fee->hk_reg_10 |=  0xFFFFUL & (uint32_t) ccd2_vrd_mon_e;
+
+	cpu_to_be32s(&smile_fee->hk_reg_10);
 }
 #endif /* FEE_SIM */
 
@@ -1638,7 +1869,7 @@ void smile_fee_set_hk_ccd2_vrd_mon_e(uint16_t ccd2_vrd_mon_e)
 
 uint16_t smile_fee_get_hk_ccd4_vrd_mon_f(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_11 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_11) >> 16) & 0xFFFFUL;
 }
 
 
@@ -1649,8 +1880,12 @@ uint16_t smile_fee_get_hk_ccd4_vrd_mon_f(void)
 
 void smile_fee_set_hk_ccd4_vrd_mon_f(uint16_t ccd4_vrd_mon_f)
 {
+	be32_to_cpus(&smile_fee->hk_reg_11);
+
 	smile_fee->hk_reg_11 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_11 |=  (0xFFFFUL & ((uint32_t) ccd4_vrd_mon_f)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_11);
 }
 #endif /* FEE_SIM */
 
@@ -1663,7 +1898,7 @@ void smile_fee_set_hk_ccd4_vrd_mon_f(uint16_t ccd4_vrd_mon_f)
 
 uint16_t smile_fee_get_hk_ccd4_vdd_mon(void)
 {
-	return (uint16_t) smile_fee->hk_reg_11 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_11) & 0xFFFFUL;
 }
 
 
@@ -1674,8 +1909,12 @@ uint16_t smile_fee_get_hk_ccd4_vdd_mon(void)
 
 void smile_fee_set_hk_ccd4_vdd_mon(uint16_t ccd4_vdd_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_11);
+
 	smile_fee->hk_reg_11 &= ~0xFFFFUL;
 	smile_fee->hk_reg_11 |=  0xFFFFUL & (uint32_t) ccd4_vdd_mon;
+
+	cpu_to_be32s(&smile_fee->hk_reg_11);
 }
 #endif /* FEE_SIM */
 
@@ -1688,7 +1927,7 @@ void smile_fee_set_hk_ccd4_vdd_mon(uint16_t ccd4_vdd_mon)
 
 uint16_t smile_fee_get_hk_ccd4_vgd_mon(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_12 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_12) >> 16) & 0xFFFFUL;
 }
 
 
@@ -1699,8 +1938,12 @@ uint16_t smile_fee_get_hk_ccd4_vgd_mon(void)
 
 void smile_fee_set_hk_ccd4_vgd_mon(uint16_t ccd4_vgd_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_12);
+
 	smile_fee->hk_reg_12 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_12 |=  (0xFFFFUL & ((uint32_t) ccd4_vgd_mon)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_12);
 }
 #endif /* FEE_SIM */
 
@@ -1713,7 +1956,7 @@ void smile_fee_set_hk_ccd4_vgd_mon(uint16_t ccd4_vgd_mon)
 
 uint16_t smile_fee_get_hk_ccd2_vrd_mon_f(void)
 {
-	return (uint16_t) smile_fee->hk_reg_12 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_12) & 0xFFFFUL;
 }
 
 
@@ -1724,8 +1967,12 @@ uint16_t smile_fee_get_hk_ccd2_vrd_mon_f(void)
 
 void smile_fee_set_hk_ccd2_vrd_mon_f(uint16_t ccd2_vrd_mon_f)
 {
+	be32_to_cpus(&smile_fee->hk_reg_12);
+
 	smile_fee->hk_reg_12 &= ~0xFFFFUL;
 	smile_fee->hk_reg_12 |=  0xFFFFUL & (uint32_t) ccd2_vrd_mon_f;
+
+	cpu_to_be32s(&smile_fee->hk_reg_12);
 }
 #endif /* FEE_SIM */
 
@@ -1741,7 +1988,7 @@ void smile_fee_set_hk_ccd2_vrd_mon_f(uint16_t ccd2_vrd_mon_f)
 
 uint16_t smile_fee_get_hk_ccd2_vdd_mon(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_13 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_13) >> 16) & 0xFFFFUL;
 }
 
 
@@ -1752,8 +1999,12 @@ uint16_t smile_fee_get_hk_ccd2_vdd_mon(void)
 
 void smile_fee_set_hk_ccd2_vdd_mon(uint16_t ccd2_vdd_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_13);
+
 	smile_fee->hk_reg_13 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_13 |=  (0xFFFFUL & ((uint32_t) ccd2_vdd_mon)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_13);
 }
 #endif /* FEE_SIM */
 
@@ -1766,7 +2017,7 @@ void smile_fee_set_hk_ccd2_vdd_mon(uint16_t ccd2_vdd_mon)
 
 uint16_t smile_fee_get_hk_ccd2_vgd_mon(void)
 {
-	return (uint16_t) smile_fee->hk_reg_13 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_13) & 0xFFFFUL;
 }
 
 
@@ -1777,8 +2028,12 @@ uint16_t smile_fee_get_hk_ccd2_vgd_mon(void)
 
 void smile_fee_set_hk_ccd2_vgd_mon(uint16_t ccd2_vgd_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_13);
+
 	smile_fee->hk_reg_13 &= ~0xFFFFUL;
 	smile_fee->hk_reg_13 |=  0xFFFFUL & (uint32_t) ccd2_vgd_mon;
+
+	cpu_to_be32s(&smile_fee->hk_reg_13);
 }
 #endif /* FEE_SIM */
 
@@ -1791,7 +2046,7 @@ void smile_fee_set_hk_ccd2_vgd_mon(uint16_t ccd2_vgd_mon)
 
 uint16_t smile_fee_get_hk_vccd(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_14 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_14) >> 16) & 0xFFFFUL;
 }
 
 
@@ -1802,8 +2057,12 @@ uint16_t smile_fee_get_hk_vccd(void)
 
 void smile_fee_set_hk_vccd(uint16_t vccd)
 {
+	be32_to_cpus(&smile_fee->hk_reg_14);
+
 	smile_fee->hk_reg_14 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_14 |=  (0xFFFFUL & ((uint32_t) vccd)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_14);
 }
 #endif /* FEE_SIM */
 
@@ -1816,7 +2075,7 @@ void smile_fee_set_hk_vccd(uint16_t vccd)
 
 uint16_t smile_fee_get_hk_vrclk_mon(void)
 {
-	return (uint16_t) smile_fee->hk_reg_14 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_14) & 0xFFFFUL;
 }
 
 
@@ -1827,8 +2086,12 @@ uint16_t smile_fee_get_hk_vrclk_mon(void)
 
 void smile_fee_set_hk_vrclk_mon(uint16_t vrclk_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_14);
+
 	smile_fee->hk_reg_14 &= ~0xFFFFUL;
 	smile_fee->hk_reg_14 |=  0xFFFFUL & (uint32_t) vrclk_mon;
+
+	cpu_to_be32s(&smile_fee->hk_reg_14);
 }
 #endif /* FEE_SIM */
 
@@ -1841,7 +2104,7 @@ void smile_fee_set_hk_vrclk_mon(uint16_t vrclk_mon)
 
 uint16_t smile_fee_get_hk_viclk(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_15 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_15) >> 16) & 0xFFFFUL;
 }
 
 
@@ -1852,8 +2115,12 @@ uint16_t smile_fee_get_hk_viclk(void)
 
 void smile_fee_set_hk_viclk(uint16_t viclk)
 {
+	be32_to_cpus(&smile_fee->hk_reg_15);
+
 	smile_fee->hk_reg_15 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_15 |=  (0xFFFFUL & ((uint32_t) viclk)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_15);
 }
 #endif /* FEE_SIM */
 
@@ -1866,7 +2133,7 @@ void smile_fee_set_hk_viclk(uint16_t viclk)
 
 uint16_t smile_fee_get_hk_ccd4_vod_mon_f(void)
 {
-	return (uint16_t) smile_fee->hk_reg_15 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_15) & 0xFFFFUL;
 }
 
 
@@ -1877,8 +2144,12 @@ uint16_t smile_fee_get_hk_ccd4_vod_mon_f(void)
 
 void smile_fee_set_hk_ccd4_vod_mon_f(uint16_t ccd4_vod_mon_f)
 {
+	be32_to_cpus(&smile_fee->hk_reg_15);
+
 	smile_fee->hk_reg_15 &= ~0xFFFFUL;
 	smile_fee->hk_reg_15 |= 0xFFFFUL & (uint32_t) ccd4_vod_mon_f;
+
+	cpu_to_be32s(&smile_fee->hk_reg_15);
 }
 #endif /* FEE_SIM */
 
@@ -1892,7 +2163,7 @@ void smile_fee_set_hk_ccd4_vod_mon_f(uint16_t ccd4_vod_mon_f)
 
 uint16_t smile_fee_get_hk_5vb_pos_mon(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_16 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_16) >> 16) & 0xFFFFUL;
 }
 
 
@@ -1903,8 +2174,12 @@ uint16_t smile_fee_get_hk_5vb_pos_mon(void)
 
 void smile_fee_set_hk_5vb_pos_mon(uint16_t _5vb_pos_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_16);
+
 	smile_fee->hk_reg_16 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_16 |= (0xFFFFUL & ((uint32_t) _5vb_pos_mon)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_16);
 }
 #endif /* FEE_SIM */
 
@@ -1917,7 +2192,7 @@ void smile_fee_set_hk_5vb_pos_mon(uint16_t _5vb_pos_mon)
 
 uint16_t smile_fee_get_hk_5vb_neg_mon(void)
 {
-	return (uint16_t) smile_fee->hk_reg_16 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_16) & 0xFFFFUL;
 }
 
 
@@ -1928,8 +2203,12 @@ uint16_t smile_fee_get_hk_5vb_neg_mon(void)
 
 void smile_fee_set_hk_5vb_neg_mon(uint16_t _5vb_neg_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_16);
+
 	smile_fee->hk_reg_16 &= ~0xFFFFUL;
 	smile_fee->hk_reg_16 |= 0xFFFFUL & (uint32_t) _5vb_neg_mon;
+
+	cpu_to_be32s(&smile_fee->hk_reg_16);
 }
 #endif /* FEE_SIM */
 
@@ -1942,7 +2221,7 @@ void smile_fee_set_hk_5vb_neg_mon(uint16_t _5vb_neg_mon)
 
 uint16_t smile_fee_get_hk_3v3b_mon(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_17 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_17) >> 16) & 0xFFFFUL;
 }
 
 
@@ -1953,8 +2232,12 @@ uint16_t smile_fee_get_hk_3v3b_mon(void)
 
 void smile_fee_set_hk_3v3b_mon(uint16_t _3v3b_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_17);
+
 	smile_fee->hk_reg_17 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_17 |= (0xFFFFUL & ((uint32_t) _3v3b_mon)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_17);
 }
 #endif /* FEE_SIM */
 
@@ -1967,7 +2250,7 @@ void smile_fee_set_hk_3v3b_mon(uint16_t _3v3b_mon)
 
 uint16_t smile_fee_get_hk_2v5a_mon(void)
 {
-	return (uint16_t) smile_fee->hk_reg_17 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_17) & 0xFFFFUL;
 }
 
 
@@ -1978,8 +2261,12 @@ uint16_t smile_fee_get_hk_2v5a_mon(void)
 
 void smile_fee_set_hk_2v5a_mon(uint16_t _2v5a_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_17);
+
 	smile_fee->hk_reg_17 &= ~0xFFFFUL;
 	smile_fee->hk_reg_17 |= 0xFFFFUL & (uint32_t) _2v5a_mon;
+
+	cpu_to_be32s(&smile_fee->hk_reg_17);
 }
 #endif /* FEE_SIM */
 
@@ -1992,7 +2279,7 @@ void smile_fee_set_hk_2v5a_mon(uint16_t _2v5a_mon)
 
 uint16_t smile_fee_get_hk_3v3d_mon(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_18 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_18) >> 16) & 0xFFFFUL;
 }
 
 
@@ -2003,8 +2290,12 @@ uint16_t smile_fee_get_hk_3v3d_mon(void)
 
 void smile_fee_set_hk_3v3d_mon(uint16_t _3v3d_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_18);
+
 	smile_fee->hk_reg_18 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_18 |= (0xFFFFUL & ((uint32_t) _3v3d_mon)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_18);
 }
 #endif /* FEE_SIM */
 
@@ -2017,7 +2308,7 @@ void smile_fee_set_hk_3v3d_mon(uint16_t _3v3d_mon)
 
 uint16_t smile_fee_get_hk_2v5d_mon(void)
 {
-	return (uint16_t) smile_fee->hk_reg_18 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_18) & 0xFFFFUL;
 }
 
 
@@ -2028,8 +2319,12 @@ uint16_t smile_fee_get_hk_2v5d_mon(void)
 
 void smile_fee_set_hk_2v5d_mon(uint16_t _2v5d_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_18);
+
 	smile_fee->hk_reg_18 &= ~0xFFFFUL;
 	smile_fee->hk_reg_18 |= 0xFFFFUL & (uint32_t) _2v5d_mon;
+
+	cpu_to_be32s(&smile_fee->hk_reg_18);
 }
 #endif /* FEE_SIM */
 
@@ -2042,7 +2337,7 @@ void smile_fee_set_hk_2v5d_mon(uint16_t _2v5d_mon)
 
 uint16_t smile_fee_get_hk_1v2d_mon(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_19 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_19) >> 16) & 0xFFFFUL;
 }
 
 
@@ -2053,8 +2348,12 @@ uint16_t smile_fee_get_hk_1v2d_mon(void)
 
 void smile_fee_set_hk_1v2d_mon(uint16_t _1v2d_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_19);
+
 	smile_fee->hk_reg_19 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_19 |= (0xFFFFUL & ((uint32_t) _1v2d_mon)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_19);
 }
 #endif /* FEE_SIM */
 
@@ -2067,7 +2366,7 @@ void smile_fee_set_hk_1v2d_mon(uint16_t _1v2d_mon)
 
 uint16_t smile_fee_get_hk_5vref_mon(void)
 {
-	return (uint16_t) smile_fee->hk_reg_19 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_19) & 0xFFFFUL;
 }
 
 
@@ -2078,8 +2377,12 @@ uint16_t smile_fee_get_hk_5vref_mon(void)
 
 void smile_fee_set_hk_5vref_mon(uint16_t _5vref_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_19);
+
 	smile_fee->hk_reg_19 &= ~0xFFFFUL;
 	smile_fee->hk_reg_19 |= 0xFFFFUL & (uint32_t) _5vref_mon;
+
+	cpu_to_be32s(&smile_fee->hk_reg_19);
 }
 #endif /* FEE_SIM */
 
@@ -2092,7 +2395,7 @@ void smile_fee_set_hk_5vref_mon(uint16_t _5vref_mon)
 
 uint16_t smile_fee_get_hk_vccd_pos_raw(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_20 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_20) >> 16) & 0xFFFFUL;
 }
 
 
@@ -2103,8 +2406,12 @@ uint16_t smile_fee_get_hk_vccd_pos_raw(void)
 
 void smile_fee_set_hk_vccd_pos_raw(uint16_t vccd_pos_raw)
 {
+	be32_to_cpus(&smile_fee->hk_reg_20);
+
 	smile_fee->hk_reg_20 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_20 |= (0xFFFFUL & ((uint32_t) vccd_pos_raw)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_20);
 }
 #endif /* FEE_SIM */
 
@@ -2117,7 +2424,7 @@ void smile_fee_set_hk_vccd_pos_raw(uint16_t vccd_pos_raw)
 
 uint16_t smile_fee_get_hk_vclk_pos_raw(void)
 {
-	return (uint16_t) smile_fee->hk_reg_20 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_20) & 0xFFFFUL;
 }
 
 
@@ -2128,8 +2435,12 @@ uint16_t smile_fee_get_hk_vclk_pos_raw(void)
 
 void smile_fee_set_hk_vclk_pos_raw(uint16_t vclk_pos_raw)
 {
+	be32_to_cpus(&smile_fee->hk_reg_20);
+
 	smile_fee->hk_reg_20 &= ~0xFFFFUL;
 	smile_fee->hk_reg_20 |= 0xFFFFUL & (uint32_t) vclk_pos_raw;
+
+	cpu_to_be32s(&smile_fee->hk_reg_20);
 }
 #endif /* FEE_SIM */
 
@@ -2142,7 +2453,7 @@ void smile_fee_set_hk_vclk_pos_raw(uint16_t vclk_pos_raw)
 
 uint16_t smile_fee_get_hk_van1_pos_raw(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_21 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_21) >> 16) & 0xFFFFUL;
 }
 
 
@@ -2153,8 +2464,12 @@ uint16_t smile_fee_get_hk_van1_pos_raw(void)
 
 void smile_fee_set_hk_van1_pos_raw(uint16_t van1_pos_raw)
 {
+	be32_to_cpus(&smile_fee->hk_reg_21);
+
 	smile_fee->hk_reg_21 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_21 |= (0xFFFFUL & ((uint32_t) van1_pos_raw)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_21);
 }
 #endif /* FEE_SIM */
 
@@ -2167,7 +2482,7 @@ void smile_fee_set_hk_van1_pos_raw(uint16_t van1_pos_raw)
 
 uint16_t smile_fee_get_hk_van3_neg_mon(void)
 {
-	return (uint16_t) smile_fee->hk_reg_21 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_21) & 0xFFFFUL;
 }
 
 
@@ -2178,8 +2493,12 @@ uint16_t smile_fee_get_hk_van3_neg_mon(void)
 
 void smile_fee_set_hk_van3_neg_monw(uint16_t van3_neg_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_21);
+
 	smile_fee->hk_reg_21 &= ~0xFFFFUL;
 	smile_fee->hk_reg_21 |= 0xFFFFUL & (uint32_t) van3_neg_mon;
+
+	cpu_to_be32s(&smile_fee->hk_reg_21);
 }
 #endif /* FEE_SIM */
 
@@ -2192,7 +2511,7 @@ void smile_fee_set_hk_van3_neg_monw(uint16_t van3_neg_mon)
 
 uint16_t smile_fee_get_hk_van2_pos_raw(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_22 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_22) >> 16) & 0xFFFFUL;
 }
 
 
@@ -2203,8 +2522,12 @@ uint16_t smile_fee_get_hk_van2_pos_raw(void)
 
 void smile_fee_set_hk_van2_pos_raw(uint16_t van2_pos_raw)
 {
+	be32_to_cpus(&smile_fee->hk_reg_22);
+
 	smile_fee->hk_reg_22 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_22 |= (0xFFFFUL & ((uint32_t) van2_pos_raw)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_22);
 }
 #endif /* FEE_SIM */
 
@@ -2217,7 +2540,7 @@ void smile_fee_set_hk_van2_pos_raw(uint16_t van2_pos_raw)
 
 uint16_t smile_fee_get_hk_vdig_raw(void)
 {
-	return (uint16_t) smile_fee->hk_reg_22 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_22) & 0xFFFFUL;
 }
 
 
@@ -2228,8 +2551,12 @@ uint16_t smile_fee_get_hk_vdig_raw(void)
 
 void smile_fee_set_hk_vdig_raw(uint16_t vdig_raw)
 {
+	be32_to_cpus(&smile_fee->hk_reg_22);
+
 	smile_fee->hk_reg_22 &= ~0xFFFFUL;
 	smile_fee->hk_reg_22 |= 0xFFFFUL & (uint32_t) vdig_raw;
+
+	cpu_to_be32s(&smile_fee->hk_reg_22);
 }
 #endif /* FEE_SIM */
 
@@ -2241,7 +2568,7 @@ void smile_fee_set_hk_vdig_raw(uint16_t vdig_raw)
 
 uint16_t smile_fee_get_hk_ig_hi_mon(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_23 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_23) >> 16) & 0xFFFFUL;
 }
 
 
@@ -2252,8 +2579,12 @@ uint16_t smile_fee_get_hk_ig_hi_mon(void)
 
 void smile_fee_set_hk_ig_hi_mon(uint16_t ig_hi_mon)
 {
+	be32_to_cpus(&smile_fee->hk_reg_23);
+
 	smile_fee->hk_reg_23 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_23 |= (0xFFFFUL & ((uint32_t) ig_hi_mon)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_23);
 }
 #endif /* FEE_SIM */
 
@@ -2266,7 +2597,7 @@ void smile_fee_set_hk_ig_hi_mon(uint16_t ig_hi_mon)
 
 uint16_t smile_fee_get_hk_ccd2_vod_mon_f(void)
 {
-	return (uint16_t) smile_fee->hk_reg_23 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_23) & 0xFFFFUL;
 }
 
 
@@ -2277,8 +2608,12 @@ uint16_t smile_fee_get_hk_ccd2_vod_mon_f(void)
 
 void smile_fee_set_hk_ccd2_vod_mon_f(uint16_t ccd2_vod_mon_f)
 {
+	be32_to_cpus(&smile_fee->hk_reg_23);
+
 	smile_fee->hk_reg_23 &= ~0xFFFFUL;
 	smile_fee->hk_reg_23 |= 0xFFFFUL & (uint32_t) ccd2_vod_mon_f;
+
+	cpu_to_be32s(&smile_fee->hk_reg_23);
 }
 #endif /* FEE_SIM */
 
@@ -2289,7 +2624,7 @@ void smile_fee_set_hk_ccd2_vod_mon_f(uint16_t ccd2_vod_mon_f)
 
 uint8_t smile_fee_get_hk_timecode_from_spw(void)
 {
-	return (uint8_t) (smile_fee->hk_reg_32 >> 16) & 0xFFUL;
+	return (uint8_t) (be32_to_cpu(smile_fee->hk_reg_32) >> 16) & 0xFFUL;
 }
 
 
@@ -2300,8 +2635,12 @@ uint8_t smile_fee_get_hk_timecode_from_spw(void)
 
 void smile_fee_set_hk_timecode_from_spw(uint8_t timecode_from_spw)
 {
+	be32_to_cpus(&smile_fee->hk_reg_32);
+
 	smile_fee->hk_reg_32 &= ~(0xFFUL << 16);
 	smile_fee->hk_reg_32 |= (0xFFUL & ((uint32_t) timecode_from_spw)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_32);
 }
 #endif /* FEE_SIM */
 
@@ -2312,7 +2651,7 @@ void smile_fee_set_hk_timecode_from_spw(uint8_t timecode_from_spw)
 
 uint8_t smile_fee_get_hk_rmap_target_status(void)
 {
-	return (uint8_t) (smile_fee->hk_reg_32 >> 8) & 0xFFUL;
+	return (uint8_t) (be32_to_cpu(smile_fee->hk_reg_32) >> 8) & 0xFFUL;
 }
 
 
@@ -2323,8 +2662,12 @@ uint8_t smile_fee_get_hk_rmap_target_status(void)
 
 void smile_fee_set_hk_rmap_target_status(uint8_t rmap_target_status)
 {
+	be32_to_cpus(&smile_fee->hk_reg_32);
+
 	smile_fee->hk_reg_32 &= ~(0xFFUL << 8);
 	smile_fee->hk_reg_32 |= (0xFFUL & ((uint32_t) rmap_target_status)) << 8;
+
+	cpu_to_be32s(&smile_fee->hk_reg_32);
 }
 #endif /* FEE_SIM */
 
@@ -2337,7 +2680,7 @@ void smile_fee_set_hk_rmap_target_status(uint8_t rmap_target_status)
 
 uint32_t smile_fee_get_hk_rmap_target_indicate(void)
 {
-	return (smile_fee->hk_reg_32 >> 5) & 0x1UL;
+	return (be32_to_cpu(smile_fee->hk_reg_32) >> 5) & 0x1UL;
 }
 
 
@@ -2353,8 +2696,12 @@ void smile_fee_set_hk_rmap_target_indicate(uint32_t rmap_target_indicate)
 	if (rmap_target_indicate)
 		rmap_target_indicate = 1;
 
+	be32_to_cpus(&smile_fee->hk_reg_32);
+
 	smile_fee->hk_reg_32 &= ~(0x1UL << 5);
 	smile_fee->hk_reg_32 |= rmap_target_indicate << 5;
+
+	cpu_to_be32s(&smile_fee->hk_reg_32);
 }
 #endif /* FEE_SIM */
 
@@ -2367,7 +2714,7 @@ void smile_fee_set_hk_rmap_target_indicate(uint32_t rmap_target_indicate)
 
 uint32_t smile_fee_get_hk_spw_link_escape_error(void)
 {
-	return (smile_fee->hk_reg_32 >> 4) & 0x1UL;
+	return (be32_to_cpu(smile_fee->hk_reg_32) >> 4) & 0x1UL;
 }
 
 
@@ -2383,8 +2730,12 @@ void smile_fee_set_hk_spw_link_escape_error(uint32_t spw_link_escape_error)
 	if (spw_link_escape_error)
 		spw_link_escape_error = 1;
 
+	be32_to_cpus(&smile_fee->hk_reg_32);
+
 	smile_fee->hk_reg_32 &= ~(0x1UL << 4);
 	smile_fee->hk_reg_32 |= spw_link_escape_error << 4;
+
+	cpu_to_be32s(&smile_fee->hk_reg_32);
 }
 #endif /* FEE_SIM */
 
@@ -2397,7 +2748,7 @@ void smile_fee_set_hk_spw_link_escape_error(uint32_t spw_link_escape_error)
 
 uint32_t smile_fee_get_hk_spw_link_credit_error(void)
 {
-	return (smile_fee->hk_reg_32 >> 3) & 0x1UL;
+	return (be32_to_cpu(smile_fee->hk_reg_32) >> 3) & 0x1UL;
 }
 
 
@@ -2413,8 +2764,12 @@ void smile_fee_set_hk_spw_link_credit_error(uint32_t spw_link_credit_error)
 	if (spw_link_credit_error)
 		spw_link_credit_error = 1;
 
+	be32_to_cpus(&smile_fee->hk_reg_32);
+
 	smile_fee->hk_reg_32 &= ~(0x1UL << 3);
 	smile_fee->hk_reg_32 |= spw_link_credit_error << 3;
+
+	cpu_to_be32s(&smile_fee->hk_reg_32);
 }
 #endif /* FEE_SIM */
 
@@ -2427,7 +2782,7 @@ void smile_fee_set_hk_spw_link_credit_error(uint32_t spw_link_credit_error)
 
 uint32_t smile_fee_get_hk_spw_link_parity_error(void)
 {
-	return (smile_fee->hk_reg_32 >> 2) & 0x1UL;
+	return (be32_to_cpu(smile_fee->hk_reg_32) >> 2) & 0x1UL;
 }
 
 
@@ -2443,8 +2798,12 @@ void smile_fee_set_hk_spw_link_parity_error(uint32_t spw_link_parity_error)
 	if (spw_link_parity_error)
 		spw_link_parity_error = 1;
 
+	be32_to_cpus(&smile_fee->hk_reg_32);
+
 	smile_fee->hk_reg_32 &= ~(0x1UL << 2);
 	smile_fee->hk_reg_32 |= spw_link_parity_error << 2;
+
+	cpu_to_be32s(&smile_fee->hk_reg_32);
 }
 #endif /* FEE_SIM */
 
@@ -2457,7 +2816,7 @@ void smile_fee_set_hk_spw_link_parity_error(uint32_t spw_link_parity_error)
 
 uint32_t smile_fee_get_hk_spw_link_disconnect(void)
 {
-	return (smile_fee->hk_reg_32 >> 1) & 0x1UL;
+	return (be32_to_cpu(smile_fee->hk_reg_32) >> 1) & 0x1UL;
 }
 
 
@@ -2473,8 +2832,12 @@ void smile_fee_set_hk_spw_link_disconnect_error(uint32_t spw_link_disconnect_err
 	if (spw_link_disconnect_error)
 		spw_link_disconnect_error = 1;
 
+	be32_to_cpus(&smile_fee->hk_reg_32);
+
 	smile_fee->hk_reg_32 &= ~(0x1UL << 1);
 	smile_fee->hk_reg_32 |= spw_link_disconnect_error << 1;
+
+	cpu_to_be32s(&smile_fee->hk_reg_32);
 }
 #endif /* FEE_SIM */
 
@@ -2487,7 +2850,7 @@ void smile_fee_set_hk_spw_link_disconnect_error(uint32_t spw_link_disconnect_err
 
 uint32_t smile_fee_get_hk_spw_link_running(void)
 {
-	return smile_fee->hk_reg_32 & 0x1UL;
+	return be32_to_cpu(smile_fee->hk_reg_32) & 0x1UL;
 }
 
 
@@ -2503,8 +2866,12 @@ void smile_fee_set_hk_spw_link_running(uint32_t spw_link_running)
 	if (spw_link_running)
 		spw_link_running = 1;
 
+	be32_to_cpus(&smile_fee->hk_reg_32);
+
 	smile_fee->hk_reg_32 &= ~0x1UL;
 	smile_fee->hk_reg_32 |= spw_link_running;
+
+	cpu_to_be32s(&smile_fee->hk_reg_32);
 }
 #endif /* FEE_SIM */
 
@@ -2517,7 +2884,7 @@ void smile_fee_set_hk_spw_link_running(uint32_t spw_link_running)
 
 uint32_t smile_fee_get_hk_frame_counter(void)
 {
-	return (smile_fee->hk_reg_33 >> 16) & 0xFFFFUL;
+	return (be32_to_cpu(smile_fee->hk_reg_33) >> 16) & 0xFFFFUL;
 }
 
 
@@ -2528,8 +2895,12 @@ uint32_t smile_fee_get_hk_frame_counter(void)
 
 void smile_fee_set_hk_frame_counter(uint16_t frame_counter)
 {
+	be32_to_cpus(&smile_fee->hk_reg_33);
+
 	smile_fee->hk_reg_33 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_33 |= (0xFFFFUL & ((uint32_t) frame_counter)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_33);
 }
 #endif /* FEE_SIM */
 
@@ -2540,7 +2911,7 @@ void smile_fee_set_hk_frame_counter(uint16_t frame_counter)
 
 uint8_t smile_fee_get_hk_fpga_op_mode(void)
 {
-	return (uint8_t) smile_fee->hk_reg_33 & 0x7FUL;
+	return (uint8_t) be32_to_cpu(smile_fee->hk_reg_33) & 0x7FUL;
 }
 
 
@@ -2551,8 +2922,12 @@ uint8_t smile_fee_get_hk_fpga_op_mode(void)
 
 void smile_fee_set_hk_fpga_op_mode(uint8_t fpga_op_mode)
 {
+	be32_to_cpus(&smile_fee->hk_reg_33);
+
 	smile_fee->hk_reg_33 &= ~0x7FUL;
 	smile_fee->hk_reg_33 |= 0x7FUL & (uint32_t) fpga_op_mode;
+
+	cpu_to_be32s(&smile_fee->hk_reg_33);
 }
 #endif /* FEE_SIM */
 
@@ -2565,7 +2940,7 @@ void smile_fee_set_hk_fpga_op_mode(uint8_t fpga_op_mode)
 
 uint32_t smile_fee_get_hk_error_flag_spw_link_escape_error(void)
 {
-	return smile_fee->hk_reg_34 & 0x1UL;
+	return be32_to_cpu(smile_fee->hk_reg_34) & 0x1UL;
 }
 
 
@@ -2581,8 +2956,12 @@ void smile_fee_set_hk_error_flag_spw_link_escape_error(uint32_t error_flag_spw_l
 	if (error_flag_spw_link_escape_error)
 		error_flag_spw_link_escape_error = 1;
 
+	be32_to_cpus(&smile_fee->hk_reg_34);
+
 	smile_fee->hk_reg_34 &= ~0x1UL;
 	smile_fee->hk_reg_34 |= error_flag_spw_link_escape_error;
+
+	cpu_to_be32s(&smile_fee->hk_reg_34);
 }
 #endif /* FEE_SIM */
 
@@ -2595,7 +2974,7 @@ void smile_fee_set_hk_error_flag_spw_link_escape_error(uint32_t error_flag_spw_l
 
 uint32_t smile_fee_get_hk_error_flag_spw_link_credit_error(void)
 {
-	return (smile_fee->hk_reg_34 >> 1) & 0x1UL;
+	return (be32_to_cpu(smile_fee->hk_reg_34) >> 1) & 0x1UL;
 }
 
 
@@ -2611,8 +2990,12 @@ void smile_fee_set_hk_error_flag_spw_link_credit_error(uint32_t error_flag_spw_l
 	if (error_flag_spw_link_credit_error)
 		error_flag_spw_link_credit_error = 1;
 
+	be32_to_cpus(&smile_fee->hk_reg_34);
+
 	smile_fee->hk_reg_34 &= ~(0x1UL << 1);
 	smile_fee->hk_reg_34 |= error_flag_spw_link_credit_error << 1;
+
+	cpu_to_be32s(&smile_fee->hk_reg_34);
 }
 #endif /* FEE_SIM */
 
@@ -2625,7 +3008,7 @@ void smile_fee_set_hk_error_flag_spw_link_credit_error(uint32_t error_flag_spw_l
 
 uint32_t smile_fee_get_hk_error_flag_spw_link_parity_error(void)
 {
-	return (smile_fee->hk_reg_34 >> 2) & 0x1UL;
+	return (be32_to_cpu(smile_fee->hk_reg_34) >> 2) & 0x1UL;
 }
 
 
@@ -2641,8 +3024,12 @@ void smile_fee_set_hk_error_flag_spw_link_parity_error(uint32_t error_flag_spw_l
 	if (error_flag_spw_link_parity_error)
 		error_flag_spw_link_parity_error = 1;
 
+	be32_to_cpus(&smile_fee->hk_reg_34);
+
 	smile_fee->hk_reg_34 &= ~(0x1UL << 2);
 	smile_fee->hk_reg_34 |= error_flag_spw_link_parity_error << 2;
+
+	cpu_to_be32s(&smile_fee->hk_reg_34);
 }
 #endif /* FEE_SIM */
 
@@ -2655,7 +3042,7 @@ void smile_fee_set_hk_error_flag_spw_link_parity_error(uint32_t error_flag_spw_l
 
 uint8_t smile_fee_get_hk_fpga_minor_version(void)
 {
-	return (uint8_t) (smile_fee->hk_reg_35 & 0xFFUL);
+	return (uint8_t) (be32_to_cpu(smile_fee->hk_reg_35) & 0xFFUL);
 }
 
 
@@ -2669,8 +3056,12 @@ uint8_t smile_fee_get_hk_fpga_minor_version(void)
 
 void smile_fee_set_hk_fpga_minor_version(uint8_t minor)
 {
+	be32_to_cpus(&smile_fee->hk_reg_35);
+
 	smile_fee->hk_reg_35 &= ~0xFFUL;
 	smile_fee->hk_reg_35 |=  0xFFUL & ((uint32_t) minor);
+
+	cpu_to_be32s(&smile_fee->hk_reg_35);
 }
 #endif /* FEE_SIM */
 
@@ -2683,7 +3074,7 @@ void smile_fee_set_hk_fpga_minor_version(uint8_t minor)
 
 uint8_t smile_fee_get_hk_fpga_major_version(void)
 {
-	return (uint8_t) ((smile_fee->hk_reg_35 >> 8) & 0xFUL);
+	return (uint8_t) ((be32_to_cpu(smile_fee->hk_reg_35) >> 8) & 0xFUL);
 }
 
 
@@ -2697,8 +3088,12 @@ uint8_t smile_fee_get_hk_fpga_major_version(void)
 
 void smile_fee_set_hk_fpga_major_version(uint8_t major)
 {
+	be32_to_cpus(&smile_fee->hk_reg_35);
+
 	smile_fee->hk_reg_35 &= ~(0xFUL << 8);
 	smile_fee->hk_reg_35 |=  (0xFUL & ((uint32_t) major)) << 8;
+
+	cpu_to_be32s(&smile_fee->hk_reg_35);
 }
 #endif /* FEE_SIM */
 
@@ -2711,7 +3106,7 @@ void smile_fee_set_hk_fpga_major_version(uint8_t major)
 
 uint16_t smile_fee_get_hk_board_id(void)
 {
-	return (uint16_t) ((smile_fee->hk_reg_35 >> 12) & 0x1FFUL);
+	return (uint16_t) ((be32_to_cpu(smile_fee->hk_reg_35) >> 12) & 0x1FFUL);
 }
 
 
@@ -2725,8 +3120,12 @@ uint16_t smile_fee_get_hk_board_id(void)
 
 void smile_fee_set_hk_board_id(uint16_t id)
 {
+	be32_to_cpus(&smile_fee->hk_reg_35);
+
 	smile_fee->hk_reg_35 &= ~(0x1FFUL << 12);
 	smile_fee->hk_reg_35 |=  (0x1FFUL & ((uint32_t) id)) << 12;
+
+	cpu_to_be32s(&smile_fee->hk_reg_35);
 }
 #endif /* FEE_SIM */
 
@@ -2739,7 +3138,7 @@ void smile_fee_set_hk_board_id(uint16_t id)
 
 uint16_t smile_fee_get_hk_ccd2_e_pix_full_sun(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_36 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_36) >> 16) & 0xFFFFUL;
 }
 
 
@@ -2750,8 +3149,12 @@ uint16_t smile_fee_get_hk_ccd2_e_pix_full_sun(void)
 
 void smile_fee_set_hk_ccd2_e_pix_full_sun(uint16_t ccd2_e_pix_full_sun)
 {
+	be32_to_cpus(&smile_fee->hk_reg_36);
+
 	smile_fee->hk_reg_36 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_36 |= (0xFFFFUL & ((uint32_t) ccd2_e_pix_full_sun)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_36);
 }
 #endif /* FEE_SIM */
 
@@ -2764,7 +3167,7 @@ void smile_fee_set_hk_ccd2_e_pix_full_sun(uint16_t ccd2_e_pix_full_sun)
 
 uint16_t smile_fee_get_hk_ccd2_f_pix_full_sun(void)
 {
-	return (uint16_t) smile_fee->hk_reg_36 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_36) & 0xFFFFUL;
 }
 
 
@@ -2775,8 +3178,12 @@ uint16_t smile_fee_get_hk_ccd2_f_pix_full_sun(void)
 
 void smile_fee_set_hk_ccd2_f_pix_full_sun(uint16_t ccd2_f_pix_full_sun)
 {
+	be32_to_cpus(&smile_fee->hk_reg_36);
+
 	smile_fee->hk_reg_36 &= ~0xFFFFUL;
 	smile_fee->hk_reg_36 |= 0xFFFFUL & (uint32_t) ccd2_f_pix_full_sun;
+
+	cpu_to_be32s(&smile_fee->hk_reg_36);
 }
 #endif /* FEE_SIM */
 
@@ -2789,7 +3196,7 @@ void smile_fee_set_hk_ccd2_f_pix_full_sun(uint16_t ccd2_f_pix_full_sun)
 
 uint16_t smile_fee_get_hk_ccd4_e_pix_full_sun(void)
 {
-	return (uint16_t) (smile_fee->hk_reg_37 >> 16) & 0xFFFFUL;
+	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_37) >> 16) & 0xFFFFUL;
 }
 
 
@@ -2800,8 +3207,12 @@ uint16_t smile_fee_get_hk_ccd4_e_pix_full_sun(void)
 
 void smile_fee_set_hk_ccd4_e_pix_full_sun(uint16_t ccd4_e_pix_full_sun)
 {
+	be32_to_cpus(&smile_fee->hk_reg_37);
+
 	smile_fee->hk_reg_37 &= ~(0xFFFFUL << 16);
 	smile_fee->hk_reg_37 |= (0xFFFFUL & ((uint32_t) ccd4_e_pix_full_sun)) << 16;
+
+	cpu_to_be32s(&smile_fee->hk_reg_37);
 }
 #endif /* FEE_SIM */
 
@@ -2814,7 +3225,7 @@ void smile_fee_set_hk_ccd4_e_pix_full_sun(uint16_t ccd4_e_pix_full_sun)
 
 uint16_t smile_fee_get_hk_ccd4_f_pix_full_sun(void)
 {
-	return (uint16_t) smile_fee->hk_reg_37 & 0xFFFFUL;
+	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_37) & 0xFFFFUL;
 }
 
 
@@ -2825,8 +3236,12 @@ uint16_t smile_fee_get_hk_ccd4_f_pix_full_sun(void)
 
 void smile_fee_set_hk_ccd4_f_pix_full_sun(uint16_t ccd4_f_pix_full_sun)
 {
+	be32_to_cpus(&smile_fee->hk_reg_37);
+
 	smile_fee->hk_reg_37 &= ~0xFFFFUL;
 	smile_fee->hk_reg_37 |= 0xFFFFUL & (uint32_t) ccd4_f_pix_full_sun;
+
+	cpu_to_be32s(&smile_fee->hk_reg_37);
 }
 #endif /* FEE_SIM */
 
@@ -3893,6 +4308,396 @@ int smile_fee_sync_hk_regs(void)
 }
 
 
+/**
+ * @brief read data from the local SRAM mirror
+ *
+ * @param buf the buffer to read to (if NULL, the required size is returned)
+ *
+ * @param addr an address within the FEE SRAM
+ * @param size the number of bytes read
+ *
+ * @returns the number of bytes read, < 0 on error
+ */
+
+int smile_fee_read_sram(void *buf, uint32_t addr, uint32_t size)
+{
+	if (addr < FEE_SRAM_START)
+		return -1;
+
+	if (addr > FEE_SRAM_END)
+		return -1;
+
+	if (size > FEE_SRAM_SIZE)
+		return -1;
+
+	if (addr + size > FEE_SRAM_END)
+		return -1;
+
+	/* correct by the base address to write the actual array */
+	addr -= FEE_SRAM_START;
+
+	if (buf)
+		memcpy(buf, &smile_fee->sram[addr], size);
+
+	return (int)size; /* lol */
+}
+
+
+/**
+ * @brief read uint16_t formatted data from the local SRAM mirror. This function
+ *	is endian-safe.
+ *
+ * @param buf the buffer to read from
+ *
+ * @param addr an address within the FEE SRAM
+ * @param nmemb the number of elements to read
+ *
+ * @returns the number of bytes read, < 0 on error
+ */
+
+int smile_fee_read_sram_16(uint16_t *buf, uint32_t addr, size_t nmemb)
+{
+	size_t size;
+
+
+
+	if (addr < FEE_SRAM_START)
+		return -1;
+
+	if (addr > FEE_SRAM_END)
+		return -1;
+
+	size = sizeof(uint16_t) * nmemb;
+
+	if (size > FEE_SRAM_SIZE)
+		return -1;
+
+	if (addr + size > FEE_SRAM_END)
+		return -1;
+
+#if !(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+	return smile_fee_read_sram(buf, addr, size);
+#else
+	{
+		size_t i;
+
+
+		/* correct by the base address to write the actual array */
+		addr -= FEE_SRAM_START;
+
+		for (i = 0; i < nmemb; i++) {
+			uint16_t *sram_buf = (uint16_t *)&smile_fee->sram[addr];
+
+			buf[i] = be16_to_cpu(sram_buf[i]);
+		}
+	}
+	return (int)size; /* lol */
+#endif /* __BYTE_ORDER__ */
+}
+
+
+
+
+/**
+ * @brief write arbitrary big-endian data to the local SRAM mirror
+ *
+ * @param buf the buffer to read from
+ *
+ * @param addr an address within the FEE SRAM
+ * @param size the number of bytes to write
+ *
+ * @returns the number of bytes written, < 0 on error
+ */
+
+int smile_fee_write_sram(void *buf, uint32_t addr, uint32_t size)
+{
+	if (!buf)
+		return 0;
+
+	if (addr < FEE_SRAM_START)
+		return -1;
+
+	if (addr > FEE_SRAM_END)
+		return -1;
+
+	if (size > FEE_SRAM_SIZE)
+		return -1;
+
+	if (addr + size > FEE_SRAM_END)
+		return -1;
+
+	/* correct by the base address to write the actual array */
+	addr -= FEE_SRAM_START;
+
+	if (buf)
+		memcpy(&smile_fee->sram[addr], buf, size);
+
+	return (int)size; /* lol */
+}
+
+
+/**
+ * @brief write uint16_t formatted data to the local SRAM mirror. This function
+ *	is endian-safe.
+ *
+ * @param buf the buffer to read from
+ *
+ * @param addr an address within the FEE SRAM
+ * @param size the number of elements to write
+ *
+ * @returns the number of bytes written, < 0 on error
+ */
+
+int smile_fee_write_sram_16(uint16_t *buf, uint32_t addr, size_t nmemb)
+{
+	size_t size;
+
+
+	if (!buf)
+		return 0;
+
+	if (addr < FEE_SRAM_START)
+		return -1;
+
+	if (addr > FEE_SRAM_END)
+		return -1;
+
+	size = sizeof(uint16_t) * nmemb;
+
+	if (size > FEE_SRAM_SIZE)
+		return -1;
+
+	if (addr + size > FEE_SRAM_END)
+		return -1;
+
+#if !(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+	return smile_fee_write_sram(buf, addr, size);
+#else
+	{
+		size_t i;
+
+
+		/* correct by the base address to write the actual array */
+		addr -= FEE_SRAM_START;
+
+		for (i = 0; i < nmemb; i++) {
+			uint16_t *sram_buf = (uint16_t *)&smile_fee->sram[addr];
+
+			sram_buf[i] = cpu_to_be16(buf[i]);
+		}
+	}
+	return (int)size; /* lol */
+#endif /* __BYTE_ORDER__ */
+}
+
+
+/**
+ * @brief write uint32_t formatted data to the local SRAM mirror. This function
+ *	is endian-safe.
+ *
+ * @param buf the buffer to read from
+ *
+ * @param addr an address within the FEE SRAM
+ * @param size the number of elements to write
+ *
+ * @returns the number of bytes written, < 0 on error
+ */
+
+int smile_fee_write_sram_32(uint32_t *buf, uint32_t addr, size_t nmemb)
+{
+	size_t size;
+
+
+	if (!buf)
+		return 0;
+
+	if (addr < FEE_SRAM_START)
+		return -1;
+
+	if (addr > FEE_SRAM_END)
+		return -1;
+
+	size = sizeof(uint16_t) * nmemb;
+
+	if (size > FEE_SRAM_SIZE)
+		return -1;
+
+	if (addr + size > FEE_SRAM_END)
+		return -1;
+
+#if !(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+	return smile_fee_write_sram(buf, addr, size);
+#else
+	{
+		size_t i;
+
+
+		/* correct by the base address to write the actual array */
+		addr -= FEE_SRAM_START;
+
+		for (i = 0; i < nmemb; i++) {
+			uint32_t *sram_buf = (uint32_t *)&smile_fee->sram[addr];
+
+			sram_buf[i] = cpu_to_be32(buf[i]);
+		}
+	}
+	return (int)size; /* lol */
+#endif /* __BYTE_ORDER__ */
+}
+
+
+
+
+/**
+ * @brief sync a range of 32 bit words of the local mirror to the remote SRAM
+ *
+ * @param addr and (aligned) address within the remote SRAM
+ * @param size the number of bytes to sync
+ * @param mtu the maximum transport unit per RMAP packet; choose wisely
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_mirror_to_sram(uint32_t addr, uint32_t size, uint32_t mtu)
+{
+	int ret;
+
+	uint32_t sent = 0;
+	uint32_t tx_bytes;
+	uint32_t local_addr;
+
+
+	if (addr & 0x3)
+		return -1;
+
+	if (addr < FEE_SRAM_START)
+		return -1;
+
+	if (addr > FEE_SRAM_END)
+		return -1;
+
+	if (size > FEE_SRAM_SIZE)
+		return -1;
+
+	if ((addr + size) > (FEE_SRAM_END + 1))
+		return -1;
+
+
+	local_addr = addr - FEE_SRAM_START;
+
+	tx_bytes = size;
+
+	while (tx_bytes >= mtu) {
+
+		ret = smile_fee_sync_data(fee_write_cmd_data, addr + sent,
+					  &smile_fee->sram[local_addr + sent], mtu, 0);
+
+		if (ret > 0)
+			continue;
+
+		if (ret < 0)
+			return -1;
+
+
+		sent     += mtu;
+		tx_bytes -= mtu;
+	}
+
+	while (tx_bytes) {
+		ret = smile_fee_sync_data(fee_write_cmd_data, addr + sent,
+					  &smile_fee->sram[local_addr + sent], tx_bytes, 0);
+		if (ret > 0)
+			continue;
+
+		if (ret < 0)
+			return -1;
+
+		tx_bytes = 0;
+	}
+
+
+	return 0;
+}
+
+
+/**
+ * @brief sync a range of 32 bit words of the remote SRAM to the local mirror
+ *
+ * @param addr an (32-bit aligned) address within the remote SRAM
+ * @param size the number of bytes to sync
+ * @param mtu the maximum transport unit per RMAP packet; choose wisely
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_sram_to_mirror(uint32_t addr, uint32_t size, uint32_t mtu)
+{
+	int ret;
+
+	uint32_t recv = 0;
+	uint32_t rx_bytes;
+	uint32_t local_addr;
+
+
+	if (addr & 0x3)
+		return -1;
+
+	if (addr < FEE_SRAM_START)
+		return -1;
+
+	if (addr > FEE_SRAM_END)
+		return -1;
+
+	if (size > FEE_SRAM_SIZE)
+		return -1;
+
+	if ((addr + size) > (FEE_SRAM_END + 1))
+		return -1;
+
+
+	local_addr = addr - FEE_SRAM_START;
+
+	rx_bytes = size;
+
+	while (rx_bytes >= mtu) {
+
+		ret = smile_fee_sync_data(fee_read_cmd_data, addr + recv,
+					  &smile_fee->sram[local_addr + recv], mtu, 1);
+
+#if 1
+		while (smile_fee_rmap_sync_status() > 3)
+			;
+#endif
+
+		if (ret > 0)
+			continue;
+
+		if (ret < 0)
+			return -1;
+
+		recv     += mtu;
+		rx_bytes -= mtu;
+	}
+
+	while (rx_bytes) {
+		ret = smile_fee_sync_data(fee_read_cmd_data, addr + recv,
+					  &smile_fee->sram[local_addr + recv], rx_bytes, 1);
+		if (ret > 0)
+			continue;
+
+		if (ret < 0)
+			return -1;
+
+		rx_bytes = 0;
+	}
+
+
+	return 0;
+}
+
+
+
+
 
 /**
  * @brief initialise the smile_fee control library
@@ -3904,7 +4709,7 @@ void smile_fee_ctrl_init(struct smile_fee_mirror *fee_mirror)
 {
 	if (!fee_mirror)
 		smile_fee = (struct smile_fee_mirror *)
-				malloc(sizeof(struct smile_fee_mirror));
+				calloc(1, sizeof(struct smile_fee_mirror));
 	else
 		smile_fee = fee_mirror;
 
@@ -3913,5 +4718,11 @@ void smile_fee_ctrl_init(struct smile_fee_mirror *fee_mirror)
 		return;
 	}
 
-	bzero(smile_fee, sizeof(struct smile_fee_mirror));
+	smile_fee->sram = (uint8_t *) malloc(FEE_SRAM_SIZE);
+	if (!smile_fee->sram) {
+		printf("Error allocating memory for the SMILE_FEE SRAM mirror\n");
+		return;
+	}
+
+	memset(smile_fee->sram, 0, FEE_SRAM_SIZE);  /* clear sram buffer */
 }

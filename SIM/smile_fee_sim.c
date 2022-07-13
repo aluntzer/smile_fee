@@ -40,8 +40,9 @@
 #include <fee_sim.h>
 
 #include <rmap.h>	/* for FEE simulation */
+#include <byteorder.h>
 
-
+#define offset_of(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 
 
 
@@ -481,7 +482,7 @@ int fee_sim_package(uint8_t *blob,
 /* simulate FEE receiving data */
 static void rmap_sim_rx(uint8_t *pkt, struct sim_net_cfg *cfg)
 {
-	int i,n;
+	int n;
 
 	uint8_t src;
 
@@ -496,7 +497,8 @@ static void rmap_sim_rx(uint8_t *pkt, struct sim_net_cfg *cfg)
 
 	struct rmap_pkt *rp;
 
-
+	uint32_t local_addr;
+	uint8_t *mem;
 
 
 	rp = rmap_pkt_from_buffer(pkt);
@@ -507,6 +509,7 @@ static void rmap_sim_rx(uint8_t *pkt, struct sim_net_cfg *cfg)
 	}
 
 
+
 	/* The rmap libary does not implement client mode, so we do the
 	 * basics here.
 	 * At the moment, we only use
@@ -515,6 +518,28 @@ static void rmap_sim_rx(uint8_t *pkt, struct sim_net_cfg *cfg)
 	 * because we only implemented the config registers, so this is pretty
 	 * easy
 	 */
+
+	/* step one: determine buffer and translate address if needed */
+
+	if (rp->addr < offset_of(struct smile_fee_mirror, sram)) {
+
+		local_addr = rp->addr;
+		mem = (uint8_t *) &smile_fee_mem;
+
+	} else if (rp->addr >= FEE_SRAM_START) {
+
+		local_addr = rp->addr - FEE_SRAM_START;
+		mem = (uint8_t *) smile_fee_mem.sram;
+
+		if (rp->addr + rp->data_len > FEE_SRAM_END) {
+			printf("RAMP SRAM transfer out of bounds %x %d\n", rp->addr, rp->data_len);
+			exit(-1);
+		}
+	} else {
+		printf("RAMP ADDRESS out of bounds\n");
+		exit(-1);
+	}
+
 
 
 	/* we reuse the packet, turn it into a response */
@@ -528,8 +553,6 @@ static void rmap_sim_rx(uint8_t *pkt, struct sim_net_cfg *cfg)
 	src = rp->src;
 	rp->src = rp->dst;
 	rp->dst = src;
-
-	/* XXX we do byte swaps everywhere if the transfer size is multiples of 4 */
 
 	switch (rp->ri.cmd) {
 		case RMAP_READ_ADDR_INC:
@@ -549,12 +572,8 @@ static void rmap_sim_rx(uint8_t *pkt, struct sim_net_cfg *cfg)
 			 * This works because the register map in the FEE
 			 * starts at address 0x0
 			 */
-			memcpy(data, (&((uint8_t *) &smile_fee_mem)[rp->addr]), data_size);
+			memcpy(data, &mem[local_addr], data_size);
 
-			if (!(data_size & 0x3)) {
-				for (i = 0; i < data_size / 4; i++)
-					__swab32s(&((uint32_t *) data)[i]);
-			}
 
 			break;
 
@@ -569,12 +588,7 @@ static void rmap_sim_rx(uint8_t *pkt, struct sim_net_cfg *cfg)
 			 * map. This works because the register map in the FEE
 			 * starts at address 0x0
 			 */
-			memcpy((&((uint8_t *) &smile_fee_mem)[rp->addr]), rp->data, rp->data_len);
-
-			if (!(rp->data_len & 0x3)) {
-				for (i = 0; i < (int) rp->data_len / 4; i++)
-					__swab32s(&((uint32_t *) &((uint8_t *) &smile_fee_mem)[rp->addr])[i]);
-			}
+			memcpy(&mem[local_addr], rp->data, rp->data_len);
 
 			rp->data_len = 0; /* no data in reply */
 
@@ -583,20 +597,13 @@ static void rmap_sim_rx(uint8_t *pkt, struct sim_net_cfg *cfg)
 		case RMAP_WRITE_ADDR_INC_REPLY:
 #ifdef DEBUG
 			printf("RMAP_WRITE_ADDR_INC_REPLY\n");
-			printf("write to addr: %x, size %d \n", rp->addr, rp->data_len);
+			printf("write to addr: %x (real %x), size %d \n", rp->addr, local_addr, rp->data_len);
 #endif
 			/* copy the payload into the simulated register
 			 * map. This works because the register map in the FEE
 			 * starts at address 0x0
 			 */
-			memcpy((&((uint8_t *) &smile_fee_mem)[rp->addr]), rp->data, rp->data_len);
-
-			if (!(rp->data_len & 0x3)) {
-				for (i = 0; i < (int) rp->data_len / 4; i++)
-					__swab32s(&((uint32_t *) &((uint8_t *) &smile_fee_mem)[rp->addr])[i]);
-			}
-
-
+			memcpy(&mem[local_addr], rp->data, rp->data_len);
 
 			rp->data_len = 0; /* no data in reply */
 
