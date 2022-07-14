@@ -1478,7 +1478,7 @@ static int fee_sim_check_event_pixel(struct sim_net_cfg *cfg,
 	}
 
 	/* below threshold, no point in doing other checks */
-	if ((fee_sim_get_local_background(pkt) + pix) < threshold)
+	if ( pix < threshold + fee_sim_get_local_background(pkt))
 		return 0;
 
 
@@ -1498,6 +1498,12 @@ static int fee_sim_check_event_pixel(struct sim_net_cfg *cfg,
 	if (ev != 8)	/* no event */
 		return 0;
 
+	/* swap ED data endianess */
+	pkt->row = cpu_to_be16(pkt->row);
+	pkt->col = cpu_to_be16(pkt->col);
+
+	for (i = 0; i < FEE_EV_DET_PIXELS; i++)
+		pkt->pix[i] = cpu_to_be16(pkt->pix[i]);
 
 	/* send event */
 	fee_sim_hdr_cpu_to_tgt(&pkt->hdr);

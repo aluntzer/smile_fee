@@ -321,11 +321,193 @@ static void save_fits(const char *name, uint16_t *buf, long rows, long cols)
 
 
 
+/**
+ *  procedure Test 1: read a basic FEE register
+ *
+ */
+
+static void smile_fee_test1(void)
+{
+	printf("Test1: read a basic FEE register\n");
+
+	printf("sync vstart/vend from FEE\n");
+	smile_fee_sync_vstart(FEE2DPU);
+	sync_rmap();
+
+	printf("vstart: %x, vend %x\n", smile_fee_get_vstart(), smile_fee_get_vend());
+
+	printf("Test1 complete\n\n");
+}
+
+
+/**
+ *  procedure Test 2: read, write & read a basic FEE register
+ *
+ */
+
+static void smile_fee_test2(void)
+{
+	printf("Test 2: read, write & read a basic FEE register\n");
+
+	printf("sync ccd2 e/f single pixel threshold from FEE\n");
+	smile_fee_sync_ccd2_e_pix_threshold(FEE2DPU);
+
+	sync_rmap();
+
+	printf("ccd2 e value currently: %x\n", smile_fee_get_ccd2_e_pix_threshold());
+	printf("ccd2 f value currently: %x\n", smile_fee_get_ccd2_f_pix_threshold());
+	printf("setting2 ccd e/f local values\n");
+
+	smile_fee_set_ccd2_e_pix_threshold(0x7b);
+	smile_fee_set_ccd2_f_pix_threshold(0x7c);
+
+	printf("ccd2 e local value now: %x\n", smile_fee_get_ccd2_e_pix_threshold());
+	printf("ccd2 f local value now: %x\n", smile_fee_get_ccd2_f_pix_threshold());
+
+	printf("syncing ccd2 e/f single pixel threshold to FEE\n");
+	smile_fee_sync_ccd2_e_pix_threshold(DPU2FEE);
+
+	sync_rmap();
+
+	printf("clearing local values for verification\n");
+	smile_fee_set_ccd2_e_pix_threshold(0x0);
+	smile_fee_set_ccd2_f_pix_threshold(0x0);
+
+	printf("syncing back ccd2 e/f single pixel threshold from FEE\n");
+	smile_fee_sync_ccd2_e_pix_threshold(FEE2DPU);
+
+	sync_rmap();
+
+	printf("ccd1 value now: %x\n", smile_fee_get_ccd2_e_pix_threshold());
+	printf("ccd2 value now: %x\n", smile_fee_get_ccd2_f_pix_threshold());
+
+	printf("Test2 complete\n\n");
+}
+
+
+/**
+ *  procedure Test 3: Get 6x6 binned pattern images from "Frame Transfer Pattern
+ *  Mode."
+ *
+ */
+
+
+static void smile_fee_test3(void)
+{
+	printf("Test 3: 6x6 binned pattern from frame transfer pattern mode\n");
+
+
+	/* Smile Test Plan Will_SS_V0.1 wants 0x0FA0030A for this register,
+	 * however the packet size must be 10 + bytes where bytes is a
+	 * multiple of 4, so we do that here
+	 */
+	smile_fee_set_packet_size(0x030C);
+	smile_fee_set_int_period(0x0FA0);
+
+	/* all above are reg4, this will suffice */
+	smile_fee_sync_packet_size(DPU2FEE);
+
+
+	/* apparently the reg5 settings are not needed according to
+	 * Smile Test Plan Will_SS_V0.1
+	 * we keeping as it was once indicated per email
+	 * that this was necessary, which appears correct, since digitise
+	 * must be enabled to actually transfer data to the DPU
+	 */
+
+	smile_fee_set_correction_bypass(1);
+	smile_fee_set_digitise_en(1);
+	smile_fee_set_readout_node_sel(3);
+
+	/* all above are reg5, this will suffice */
+	smile_fee_sync_correction_bypass(DPU2FEE);
+
+	/* frame transfer mode */
+	smile_fee_set_ccd_mode_config(0x1);
+
+	smile_fee_set_ccd_mode2_config(0x2);
+
+	/* all above are reg32, this will suffice */
+	smile_fee_sync_ccd_mode_config(DPU2FEE);
+
+	sync_rmap(); /* make sure all parameters are set */
+
+	/* trigger packet transmission */
+	smile_fee_set_execute_op(0x1);
+	smile_fee_sync_execute_op(DPU2FEE);
+
+	sync_rmap();
+
+	while (1)
+	{
+		static int ps = 1;	/* times to print everything... */
+		static int pp = 1;	/* times to print everything... */
+		int n, i;
+		struct fee_data_pkt *pkt;
+		struct fee_pattern  *pat;
+
+		usleep(1000);
+
+		n  = pkt_rx(NULL);
+
+		if (n)
+			pkt = (struct fee_data_pkt *) malloc(n);
+		else
+			continue;
+
+		n = pkt_rx((uint8_t *) pkt);
+
+		if (n <= 0)
+			printf("Error in pkt_rx()\n");
+
+
+		pkt->hdr.data_len   = __be16_to_cpu(pkt->hdr.data_len);
+		pkt->hdr.frame_cntr = __be16_to_cpu(pkt->hdr.frame_cntr);
+		pkt->hdr.seq_cntr   = __be16_to_cpu(pkt->hdr.seq_cntr);
+
+		if (ps) {
+			ps--;
+
+			printf("data type %d len %d frame %d seq %d\n",
+			       pkt->hdr.type.pkt_type,
+			       pkt->hdr.data_len,
+			       pkt->hdr.frame_cntr,
+			       pkt->hdr.seq_cntr);
+		}
+
+		pat = (struct fee_pattern *) &pkt->data;
+		n = pkt->hdr.data_len / sizeof(struct fee_pattern);
+
+		if (pp) {
+			pp--;
+			printf("n %d\n", n);
+			for (i = 0; i < n; i++) {
+				printf("%d %d %d %d %d\n", pat[i].time_code, pat[i].ccd, pat[i].side, pat[i].row, pat[i].col);
+
+			}
+		}
+
+		/* setup abort ... */
+		if (pkt->hdr.seq_cntr == 2555)	/* gen stops about there? */
+			ps = -1;
+
+		free(pkt);
+
+		/* abort ... */
+		if (ps < 0)
+			break;
+	}
+
+	printf("Test3 complete\n\n");
+}
+
+
+
 
 
 
 /**
- *  procedure Test 1: Smile Test Plan Will_SS_V0.1 Verification No 1
+ *  procedure Test 6: Smile Test Plan Will_SS_V0.1 Verification No 1
  *
  *  in On-Mode, configure FT pattern mode, binning at 6x6, packet size 778
  *  all other parameters left at default
@@ -337,7 +519,7 @@ static void save_fits(const char *name, uint16_t *buf, long rows, long cols)
  */
 
 
-static void smile_fee_test1(void)
+static void smile_fee_test6(void)
 {
 	struct timeval t0, t;
 	double elapsed_time;
@@ -676,9 +858,8 @@ static void smile_fee_test789(void)
 
 
 
-
-
-
+#define UPLOAD 1
+#ifdef UPLOAD
 	/* setup ED sim data in local SRAM copy */
 
 
@@ -702,9 +883,9 @@ static void smile_fee_test789(void)
 		exit(-1);
 	}
 
-	fread(data, fsize, 2, fd);
+	fread(data, fsize, 1, fd);
 
-	smile_fee_write_sram_16(data, FEE_SRAM_SIDE_E_START, FEE_EDU_FRAME_6x6_ROWS * FEE_EDU_FRAME_6x6_COLS * 2);
+	smile_fee_write_sram_16(data, FEE_SRAM_SIDE_E_START, fsize/sizeof(uint16_t));
 	fclose(fd);
 
 	fd = fopen("../SIM/f_raw.dat", "r");
@@ -717,7 +898,7 @@ static void smile_fee_test789(void)
 	fsize = ftell(fd);
 	fseek(fd, 0, SEEK_SET);
 
-	if (fsize < FEE_EDU_FRAME_6x6_ROWS * FEE_EDU_FRAME_6x6_COLS * 2) {
+	if (fsize < FEE_EDU_FRAME_6x6_ROWS * FEE_EDU_FRAME_6x6_COLS * 2 * sizeof(uint16_t)) {
 		printf("raw data size must be exactly 2 * 2 * rows * cols\n");
 		exit(-1);
 	}
@@ -727,16 +908,47 @@ static void smile_fee_test789(void)
 		exit(-1);
 	}
 
-	fread(data, fsize, 2, fd);
+	fread(data, fsize, 1, fd);
 
 
-
-	smile_fee_write_sram_16(data, FEE_SRAM_SIDE_F_START, FEE_EDU_FRAME_6x6_ROWS * FEE_EDU_FRAME_6x6_COLS * 2);
+	printf("\nUPLOAD\n");
+	smile_fee_write_sram_16(data, FEE_SRAM_SIDE_F_START, fsize/sizeof(uint16_t));
 	fclose(fd);
 
-	smile_fee_sync_mirror_to_sram(FEE_SRAM_SIDE_E_START, FEE_SRAM_SIDE_E_SIZE, smile_fee_get_data_mtu());
-	smile_fee_sync_mirror_to_sram(FEE_SRAM_SIDE_F_START, FEE_SRAM_SIDE_F_SIZE, smile_fee_get_data_mtu());
+	smile_fee_sync_mirror_to_sram(FEE_SRAM_SIDE_E_START, fsize, smile_fee_get_data_mtu());
+	smile_fee_sync_mirror_to_sram(FEE_SRAM_SIDE_F_START, fsize, smile_fee_get_data_mtu());
 	sync_rmap();
+	printf("\nUPLOAD COMPLETE\n");
+#endif /* UPLOAD */
+
+#if 0 /* DOWNLOAD */
+
+	data = calloc(1000, sizeof(uint16_t));
+
+	smile_fee_write_sram_16(data, FEE_SRAM_SIDE_E_START, 1000);
+//	smile_fee_read_sram_16(data, FEE_SRAM_SIDE_E_START, 1000);
+
+
+	printf("E_SIDE:\n");
+	for (int i = 0; i < 1000; i++)
+		printf("%04x ", data[i]);
+	printf("\n");
+
+	printf("\nDOWNLOAD\n");
+	smile_fee_sync_sram_to_mirror(FEE_SRAM_SIDE_E_START, 1000 * sizeof(uint16_t), smile_fee_get_data_mtu());
+	sync_rmap();
+	printf("\nDOWNLOAD COMPLETE\n");
+
+	printf("\n");
+	smile_fee_read_sram_16(data, FEE_SRAM_SIDE_E_START, 1000);
+
+	printf("E_SIDE:\n");
+	for (int i = 0; i < 1000; i++)
+		printf("%04x ", data[i]);
+	printf("\n");
+
+
+#endif
 
 
 	/* update local configuration of all used registers
@@ -753,6 +965,14 @@ static void smile_fee_test789(void)
 	smile_fee_sync_ccd_mode_config(FEE2DPU);
 	smile_fee_sync_ccd_mode2_config(FEE2DPU);
 	smile_fee_sync_execute_op(FEE2DPU);
+
+
+
+	printf("packet size: %d\n", smile_fee_get_packet_size());
+	printf("readout node  %d\n", smile_fee_get_readout_node_sel());
+	printf("mode config  %d\n", smile_fee_get_readout_node_sel());
+
+
 
 	/* flush all pending transfers */
 	sync_rmap();
@@ -838,7 +1058,7 @@ static void smile_fee_test789(void)
 			free(pkt);
 			pkt = NULL;
 		}
-#if 0
+#if 1
 		usleep(1000);
 #endif
 
@@ -863,14 +1083,19 @@ static void smile_fee_test789(void)
 
 		fee_pkt_hdr_to_cpu(pkt);
 
+		if (pkt->hdr.type.last_pkt) {
+			printf("last packet!\n");
+		}
+
 		if (fee_pkt_is_event(pkt)) {
+			fee_pkt_event_to_cpu(pkt);
 			if (fee_event_is_xray(pkt, 5000, 150*8, 200)) {
-				ev_cnt++;
 				fwrite((void *)pkt, n, 1, fd);
-			}
-#if 1
+			ev_cnt++;
 			fee_pkt_show_event(pkt);
 			printf("ev_cnt %d\n", ev_cnt);
+			}
+#if 1
 #endif
 
 			continue; /* for EV_TEST_DIGITISE */
@@ -902,15 +1127,12 @@ static void smile_fee_test789(void)
 
 static void smile_fee_run_tests(void)
 {
-#if 0
-	smile_fee_test1();
-	smile_fee_test_ev_det_ft();
-#endif
-#if 0
-	smile_fee_test_ev_det_ft();
-#else
+//	smile_fee_test1();
+//	smile_fee_test2();
+//	smile_fee_test3();
+
+	//smile_fee_test_ev_det_ft();
 	smile_fee_test789();
-#endif
 
 
 	printf("standing by\n");

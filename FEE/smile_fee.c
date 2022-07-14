@@ -95,6 +95,32 @@ void fee_pkt_show_event(struct fee_data_pkt *pkt)
 
 
 /**
+ * @brief swap the data endianess in an event packet
+ *
+ */
+
+void fee_pkt_event_to_cpu(struct fee_data_pkt *pkt)
+{
+	size_t i;
+	struct fee_event_detection *ev;
+
+
+	if (!fee_pkt_is_event(pkt))
+		return;
+
+
+	ev = (struct fee_event_detection *) pkt;
+
+	ev->row = be16_to_cpu(ev->row);
+	ev->col = be16_to_cpu(ev->col);
+
+	for (i = 0; i < FEE_EV_DET_PIXELS; i++)
+		ev->pix[i] = be16_to_cpu(ev->pix[i]);
+
+}
+
+
+/**
  * @brief perform event classification
  *
  *
