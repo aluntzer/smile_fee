@@ -27,7 +27,9 @@
 #include <smile_fee_ctrl.h>
 #include <smile_fee_rmap.h>
 
+#ifdef SIM_DUMP_FITS
 #include <fitsio.h>
+#endif
 
 /* restriction from FEE IRD */
 #define MAX_PAYLOAD_SIZE	(2048)
@@ -283,6 +285,7 @@ static void sync_rmap(void)
 
 
 
+#ifdef SIM_DUMP_FITS
 static void save_fits(const char *name, uint16_t *buf, long rows, long cols)
 {
 	long naxes[3];
@@ -318,7 +321,7 @@ static void save_fits(const char *name, uint16_t *buf, long rows, long cols)
 		exit(-1);
 	}
 }
-
+#endif /* SIM_DUMP_FITS */
 
 
 /**
@@ -640,10 +643,12 @@ static void smile_fee_test6(void)
 
 	}
 
+#ifdef SIM_DUMP_FITS
 	save_fits("!E2.fits", ft->E2, ft->rows, ft->cols);
 	save_fits("!E4.fits", ft->E4, ft->rows, ft->cols);
 	save_fits("!F2.fits", ft->F2, ft->rows, ft->cols);
 	save_fits("!F4.fits", ft->F4, ft->rows, ft->cols);
+#endif
 
 	fee_ft_aggregator_destroy(ft);
 
@@ -824,10 +829,12 @@ static void smile_fee_test_ev_det_ft(void)
 	fclose(fd);
 	printf("->>> %d x-ray events classified\n", ev_cnt);
 
+#ifdef SIM_DUMP_FITS
 	save_fits("!E2.fits", ft->E2, ft->rows, ft->cols);
 	save_fits("!E4.fits", ft->E4, ft->rows, ft->cols);
 	save_fits("!F2.fits", ft->F2, ft->rows, ft->cols);
 	save_fits("!F4.fits", ft->F4, ft->rows, ft->cols);
+#endif
 
 	fee_ft_aggregator_destroy(ft);
 
@@ -1108,10 +1115,12 @@ static void smile_fee_test789(void)
 	fclose(fd);
 	printf("->>> %d x-ray events classified\n", ev_cnt);
 
+#ifdef SIM_DUMP_FITS
 	save_fits("!E2.fits", ft->E2, ft->rows, ft->cols);
 	save_fits("!E4.fits", ft->E4, ft->rows, ft->cols);
 	save_fits("!F2.fits", ft->F2, ft->rows, ft->cols);
 	save_fits("!F4.fits", ft->F4, ft->rows, ft->cols);
+#endif
 
 	fee_ft_aggregator_destroy(ft);
 

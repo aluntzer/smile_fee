@@ -5,7 +5,14 @@ BUILDDIR         = ./
 PATH            +=
 CFLAGS          += -O2 -W -Wall -Wextra #-Wno-unused #-Werror -pedantic
 CPPFLAGS        := -I$(INCLUDEDIR) -I../GRESB
-LDFLAGS         := -lpthread -lcfitsio
+
+ifdef SIM_DUMP_FITS
+CFLAGS		+= -DSIM_DUMP_FITS
+LDFLAGS         := -lpthread -lm -lcfitsio
+else
+LDFLAGS         := -lpthread -lm
+endif
+
 SOURCES         := $(wildcard *.c) ../GRESB/gresb.c ../FEE/*.c
 OBJECTS         := $(patsubst %.c, $(BUILDDIR)/%.o, $(subst $(SOURCEDIR)/,, $(SOURCES)))
 TARGET          := sdpdev 

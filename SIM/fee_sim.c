@@ -38,7 +38,10 @@
 #include <byteorder.h>
 
 #include <sys/time.h>
+
+#ifdef SIM_DUMP_FITS
 #include <fitsio.h>
+#endif
 
 
 static uint16_t *CCD2E;
@@ -186,6 +189,7 @@ struct fee_data_payload {
 
 
 
+#ifdef SIM_DUMP_FITS
 static void save_fits(const char *name, uint16_t *buf, long rows, long cols)
 {
 	long naxes[3];
@@ -221,7 +225,7 @@ static void save_fits(const char *name, uint16_t *buf, long rows, long cols)
 		exit(-1);
 	}
 }
-
+#endif /* SIM_DUMP_FITS */
 
 /**
  * @brief get a random number between 0 and 1 following a logarithmic
@@ -1702,7 +1706,7 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 	 * events to send is 0 (NOTE: this is a per-CCD limit!) OR the last frame is fully processed
 	 */
 
-#if 1
+#ifdef SIM_DUMP_FITS
 	/* for testing */
 	ccd_sim_add_rd_noise(CCD2E, FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS);
 	save_fits("!CCD2E.fits", CCD2E, FEE_CCD_IMG_SEC_ROWS, FEE_CCD_IMG_SEC_COLS);
@@ -1710,10 +1714,10 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 	ccd_sim_add_rd_noise(CCD2F, FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS);
 	save_fits("!CCD2F.fits", CCD2F, FEE_CCD_IMG_SEC_ROWS, FEE_CCD_IMG_SEC_COLS);
 	save_fits("!F2.fits", F2, rows, cols);
-#endif
+#endif	/* SIM_DUMP_FITS */
 
 
-#if 1
+#ifdef SIM_DUMP_RAW
 
 	/* for testing: dump raw interleaved E/F data */
 
@@ -1751,9 +1755,7 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 
 		}
 	}
-
-
-#endif
+#endif	/* SIM_DUMP_RAW */
 
 	free(E2);
 	free(F2);
