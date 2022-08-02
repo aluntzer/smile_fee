@@ -1477,7 +1477,7 @@ static int fee_sim_check_event_pixel(struct sim_net_cfg *cfg,
 	/* collect event area into packet */
 	for (i = 2; i >= -2; i--) {
 		for (j = -2; j <= 2; j++)
-			pkt->pix[cnt++] = frame[idx + i * cols + j];
+			pkt->pix[cnt++] = frame[idx + j * cols + i];
 
 	}
 
@@ -1526,10 +1526,10 @@ static int fee_sim_check_event_pixel(struct sim_net_cfg *cfg,
 
 static size_t fee_sim_detect_events(struct sim_net_cfg *cfg,
 				    struct fee_event_detection *pkt,
+				    size_t ev_max,
 				    uint16_t *frame, size_t rows, size_t cols,
 				    uint16_t threshold)
 {
-	size_t ev_cnt = 0;
 	size_t r, c;
 
 	struct timeval t0, t;
@@ -1537,6 +1537,9 @@ static size_t fee_sim_detect_events(struct sim_net_cfg *cfg,
 
 
 	if (!frame) /* unused sides are NULL */
+		return 0;
+
+	if (!ev_max)
 		return 0;
 
 	/* detect only if event detection is set */
@@ -1566,7 +1569,11 @@ static size_t fee_sim_detect_events(struct sim_net_cfg *cfg,
 					printf("event at %ld %ld, value %d\n", r, c, frame[idx]);
 #else
 			if (fee_sim_check_event_pixel(cfg, pkt, frame, idx, cols, threshold))
-				ev_cnt++;
+				ev_max--;
+
+
+			if (ev_max == 0)
+				break;
 #endif
 		}
 	}
@@ -1576,11 +1583,8 @@ static size_t fee_sim_detect_events(struct sim_net_cfg *cfg,
 	elapsed_time  = (t.tv_sec  - t0.tv_sec)  * 1000.0;
 	elapsed_time += (t.tv_usec - t0.tv_usec) / 1000.0;
 	printf("event detection in %g ms\n", elapsed_time);
-#if 1
-	printf("SWCX event candidates detected %ld\n", ev_cnt);
 
-#endif
-	return ev_cnt;
+	return ev_max;
 }
 
 static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
@@ -1593,8 +1597,8 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 	size_t rows, cols, bins;
 	uint16_t readout;
 
-	size_t E_ev_cnt = smile_fee_get_event_pkt_limit();
-	size_t F_ev_cnt = smile_fee_get_event_pkt_limit();
+	size_t CCD2_ev_cnt = smile_fee_get_event_pkt_limit();
+	size_t CCD4_ev_cnt = smile_fee_get_event_pkt_limit();
 
 	struct fee_event_detection ev_pkt = {0};
 
@@ -1649,7 +1653,7 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 		if (smile_fee_get_ccd_mode2_config() == FEE_MODE2_BIN6) {
 			fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_E);
 			fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_2);
-			fee_sim_detect_events(cfg, &ev_pkt, E2, rows, cols, smile_fee_get_ccd2_e_pix_threshold());
+			CCD2_ev_cnt = fee_sim_detect_events(cfg, &ev_pkt, CCD2_ev_cnt, E2, rows, cols, smile_fee_get_ccd2_e_pix_threshold());
 		}
 
 	}
@@ -1662,7 +1666,7 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 		if (smile_fee_get_ccd_mode2_config() == FEE_MODE2_BIN6) {
 			fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_F);
 			fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_2);
-			fee_sim_detect_events(cfg, &ev_pkt, F2, rows, cols, smile_fee_get_ccd4_e_pix_threshold());
+			CCD2_ev_cnt = fee_sim_detect_events(cfg, &ev_pkt, CCD2_ev_cnt, F2, rows, cols, smile_fee_get_ccd4_e_pix_threshold());
 		}
 	}
 
@@ -1674,7 +1678,7 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 		if (smile_fee_get_ccd_mode2_config() == FEE_MODE2_BIN6) {
 			fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_E);
 			fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_4);
-			fee_sim_detect_events(cfg, &ev_pkt, E4, rows, cols, smile_fee_get_ccd2_f_pix_threshold());
+			CCD4_ev_cnt = fee_sim_detect_events(cfg, &ev_pkt, CCD4_ev_cnt, E4, rows, cols, smile_fee_get_ccd2_f_pix_threshold());
 		}
 	}
 
@@ -1686,7 +1690,7 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 		if (smile_fee_get_ccd_mode2_config() == FEE_MODE2_BIN6) {
 			fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_F);
 			fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_4);
-			fee_sim_detect_events(cfg, &ev_pkt, F4, rows, cols, smile_fee_get_ccd4_f_pix_threshold());
+			CCD4_ev_cnt = fee_sim_detect_events(cfg, &ev_pkt, CCD4_ev_cnt, F4, rows, cols, smile_fee_get_ccd4_f_pix_threshold());
 		}
 	}
 
@@ -1699,6 +1703,14 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 					       (uint8_t *) E4, (uint8_t *) F4,
 					       sizeof(uint16_t) * rows * cols);
 		}
+	} else {
+		/* send empty event with last packet marker to indicate end of frame */
+		ev_pkt.row = 0;
+		ev_pkt.col = 0;
+		memset(&ev_pkt.pix, 0, FEE_EV_DET_PIXELS * sizeof(uint16_t));
+		fee_sim_hdr_set_last_pkt(&ev_pkt.hdr, 1);
+		fee_sim_hdr_cpu_to_tgt(&ev_pkt.hdr);
+		fee_send_non_rmap(cfg, (uint8_t *) &ev_pkt, sizeof(struct fee_event_detection));
 	}
 
 	/* TODO: if event detection is active, send a last_packet
@@ -1859,8 +1871,8 @@ static void fee_sim_exec_evsim_mode(struct sim_net_cfg *cfg)
 
 	uint16_t readout;
 
-	size_t E_ev_cnt = smile_fee_get_event_pkt_limit();
-	size_t F_ev_cnt = smile_fee_get_event_pkt_limit();
+	size_t CCD2_ev_cnt = smile_fee_get_event_pkt_limit();
+	size_t CCD4_ev_cnt = smile_fee_get_event_pkt_limit();
 
 	struct fee_event_detection ev_pkt = {0};
 
@@ -1885,7 +1897,7 @@ static void fee_sim_exec_evsim_mode(struct sim_net_cfg *cfg)
 
 		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_E);
 		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_2);
-		fee_sim_detect_events(cfg, &ev_pkt, E2, rows, cols, smile_fee_get_ccd2_e_pix_threshold());
+		CCD2_ev_cnt = fee_sim_detect_events(cfg, &ev_pkt, CCD2_ev_cnt, E2, rows, cols, smile_fee_get_ccd2_e_pix_threshold());
 
 	}
 
@@ -1894,7 +1906,7 @@ static void fee_sim_exec_evsim_mode(struct sim_net_cfg *cfg)
 
 		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_F);
 		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_2);
-		fee_sim_detect_events(cfg, &ev_pkt, F2, rows, cols, smile_fee_get_ccd4_e_pix_threshold());
+		CCD2_ev_cnt = fee_sim_detect_events(cfg, &ev_pkt, CCD2_ev_cnt, F2, rows, cols, smile_fee_get_ccd4_e_pix_threshold());
 	}
 
 	if (readout & FEE_READOUT_NODE_E4) {
@@ -1902,7 +1914,7 @@ static void fee_sim_exec_evsim_mode(struct sim_net_cfg *cfg)
 
 		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_E);
 		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_4);
-		fee_sim_detect_events(cfg, &ev_pkt, E4, rows, cols, smile_fee_get_ccd2_f_pix_threshold());
+		CCD4_ev_cnt = fee_sim_detect_events(cfg, &ev_pkt, CCD4_ev_cnt, E4, rows, cols, smile_fee_get_ccd2_f_pix_threshold());
 	}
 
 	if (readout & FEE_READOUT_NODE_F4) {
@@ -1910,14 +1922,18 @@ static void fee_sim_exec_evsim_mode(struct sim_net_cfg *cfg)
 
 		fee_sim_hdr_set_ccd_side(&ev_pkt.hdr, FEE_CCD_SIDE_F);
 		fee_sim_hdr_set_ccd_id(&ev_pkt.hdr,   FEE_CCD_ID_4);
-		fee_sim_detect_events(cfg, &ev_pkt, F4, rows, cols, smile_fee_get_ccd4_f_pix_threshold());
+		CCD4_ev_cnt = fee_sim_detect_events(cfg, &ev_pkt, CCD4_ev_cnt, F4, rows, cols, smile_fee_get_ccd4_f_pix_threshold());
 	}
 
 
-	/* TODO: if event detection is active, send a last_packet
-	 * header to indicate end of frame when either the number of remaining
-	 * events to send is 0 (NOTE: this is a per-CCD limit!) OR the last frame is fully processed
-	 */
+	/* send empty event with last packet marker to indicate end of frame */
+	ev_pkt.row = 0;
+	ev_pkt.col = 0;
+	memset(&ev_pkt.pix, 0, FEE_EV_DET_PIXELS * sizeof(uint16_t));
+	fee_sim_hdr_set_last_pkt(&ev_pkt.hdr, 1);
+	fee_sim_hdr_cpu_to_tgt(&ev_pkt.hdr);
+	fee_send_non_rmap(cfg, (uint8_t *) &ev_pkt, sizeof(struct fee_event_detection));
+
 
 
 	free(E2);
