@@ -1091,7 +1091,10 @@ static void smile_fee_test789(void)
 		fee_pkt_hdr_to_cpu(pkt);
 
 		if (pkt->hdr.type.last_pkt) {
-			printf("last packet!\n");
+			printf("last packet, seq %d, frame %d, data len %d type field %x\n", pkt->hdr.seq_cntr,
+								pkt->hdr.frame_cntr,
+								pkt->hdr.data_len,
+								pkt->hdr.fee_pkt_type);
 		}
 
 		if (fee_pkt_is_event(pkt)) {
