@@ -52,6 +52,18 @@ static uint16_t *RDO;
 
 static uint16_t frame_cntr;
 
+
+
+#define SIM_WANDERING_MASK_COL_START	2
+#define SIM_WANDERING_MASK_ROW_START	2
+#define SIM_WANDERING_MASK_COL_END	(FEE_EDU_FRAME_6x6_COLS - 2)
+#define SIM_WANDERING_MASK_ROW_END	(FEE_EDU_FRAME_6x6_ROWS - 2)
+
+struct {
+	uint16_t col;
+	uint16_t row;
+} sim_w_mask = {SIM_WANDERING_MASK_COL_START, SIM_WANDERING_MASK_ROW_START};
+
 struct fee_data_payload {
 	struct fee_data_pkt *pkt;
 	size_t data_len_max;
@@ -801,8 +813,29 @@ static void ccd_sim_refresh(void)
 
 
 
+static void fee_sim_move_wandering_mask(void)
+{
+	/* sim_w_mask is  expected to be pre-initialised */
+
+	sim_w_mask.col++;
+	if (sim_w_mask.col > SIM_WANDERING_MASK_COL_END) {
+		sim_w_mask.col = SIM_WANDERING_MASK_COL_START;
+
+		sim_w_mask.row++;
+		if (sim_w_mask.row > SIM_WANDERING_MASK_ROW_END)
+			sim_w_mask.row = SIM_WANDERING_MASK_ROW_START;
+	}
+}
 
 
+static int fee_sim_pix_is_wandering_mask(uint16_t col, uint16_t row)
+{
+	if (col == sim_w_mask.col)
+		if (row == sim_w_mask.row)
+			return 1;
+
+	return 0;
+}
 
 
 static void fee_sim_destroy_hk_data_payload(struct fee_hk_data_payload *hk)
@@ -1558,7 +1591,7 @@ static size_t fee_sim_detect_events(struct sim_net_cfg *cfg,
 		size_t c0 = r * cols;
 
 		for (c = 2; c < (cols - 2); c++) {
-
+			int is_event;
 			size_t idx = c0 + c;
 
 			pkt->row = r;
@@ -1568,8 +1601,41 @@ static size_t fee_sim_detect_events(struct sim_net_cfg *cfg,
 			if (fee_sim_check_event_pixel(cfg, pkt, frame, idx, cols, threshold))
 					printf("event at %ld %ld, value %d\n", r, c, frame[idx]);
 #else
-			if (fee_sim_check_event_pixel(cfg, pkt, frame, idx, cols, threshold))
+			is_event = fee_sim_check_event_pixel(cfg, pkt, frame, idx, cols, threshold);
+			if (is_event) {
 				ev_max--;
+			} else if (smile_fee_get_edu_wandering_mask_en()) {
+
+				/* the wandering mask for a particular frame is only sent
+				 * when it does not coincide with an event in that location.
+				 */
+				if (fee_sim_pix_is_wandering_mask(c, r)) {
+
+					size_t i;
+
+					/* the content is already pre-filled in fee_sim_check_event_pixel()
+					 * we just have to mark is as wandering mask and send it
+					 */
+					/* swap ED data endianess */
+					pkt->row = cpu_to_be16(pkt->row);
+					pkt->col = cpu_to_be16(pkt->col);
+
+					/* temporarily change it to mask type */
+					fee_sim_hdr_set_pkt_type(&pkt->hdr, FEE_PKT_TYPE_WMASK);
+
+					for (i = 0; i < FEE_EV_DET_PIXELS; i++)
+						pkt->pix[i] = cpu_to_be16(pkt->pix[i]);
+
+					/* send event */
+					fee_sim_hdr_cpu_to_tgt(&pkt->hdr);
+					fee_send_non_rmap(cfg, (uint8_t *) pkt, sizeof(struct fee_event_detection));
+					fee_sim_hdr_tgt_to_cpu(&pkt->hdr);
+					fee_sim_hdr_inc_seq_cntr(&pkt->hdr);
+
+					/* back to EV_DET type */
+					fee_sim_hdr_set_pkt_type(&pkt->hdr, FEE_PKT_TYPE_EV_DET);
+				}
+			}
 
 
 			if (ev_max == 0)
@@ -2181,6 +2247,19 @@ void fee_sim_main(struct sim_net_cfg *cfg)
 
 		smile_fee_set_execute_op(0);
 		printf("OP complete\n");
+
+		/* XXX it is unclear from the documentation, whether the
+		 * wandering mask location is incremented in every cycle or
+		 * just in case of
+		 * 1) wandering mask is enabled
+		 * 2) ED is enabled
+		 *
+		 * we'll assume 1) + 2)
+		 */
+
+		if (smile_fee_get_edu_wandering_mask_en())
+			if (smile_fee_get_event_detection())
+				fee_sim_move_wandering_mask();
 	}
 
 	free(CCD2E);

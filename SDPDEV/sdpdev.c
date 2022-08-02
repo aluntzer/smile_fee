@@ -1042,6 +1042,12 @@ static void smile_fee_test789(void)
 	smile_fee_sync_digitise_en(DPU2FEE);
 	smile_fee_sync_event_detection(DPU2FEE);
 
+#define WANDERING_MASK_TEST 1
+#if WANDERING_MASK_TEST
+	smile_fee_set_edu_wandering_mask_en(1);
+	smile_fee_sync_edu_wandering_mask_en(DPU2FEE);
+#endif
+
 	/* flush all pending transfers */
 	sync_rmap();
 
@@ -1097,13 +1103,26 @@ static void smile_fee_test789(void)
 								pkt->hdr.fee_pkt_type);
 		}
 
+		if (fee_pkt_is_wandering_mask(pkt)) {
+
+			/* wandering masks are identical to events, except for
+			 * the packet type marker
+			 */
+			fee_pkt_wandering_mask_to_cpu(pkt);
+			printf("WANDERING MASK!\n");
+			fee_pkt_show_wandering_mask(pkt);
+
+			continue; /* for EV_TEST_DIGITISE */
+		}
+
+
 		if (fee_pkt_is_event(pkt)) {
 			fee_pkt_event_to_cpu(pkt);
 			if (fee_event_is_xray(pkt, 5000, 150*8, 200)) {
 				fwrite((void *)pkt, n, 1, fd);
-			ev_cnt++;
-			fee_pkt_show_event(pkt);
-			printf("ev_cnt %d\n", ev_cnt);
+				ev_cnt++;
+				fee_pkt_show_event(pkt);
+				printf("ev_cnt %d\n", ev_cnt);
 			}
 #if 1
 #endif

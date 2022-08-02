@@ -3973,7 +3973,7 @@ int smile_fee_sync_clear_full_sun_counters(enum sync_direction dir)
  * @returns 0 on success, otherwise error
  */
 
-int smile_fee_sync_edu_wandering_mask(enum sync_direction dir)
+int smile_fee_sync_edu_wandering_mask_en(enum sync_direction dir)
 {
 	return smile_fee_sync_cfg_reg_5(dir);
 }

@@ -32,52 +32,32 @@
 
 
 
-/**
- * @brief in-place swap header fields to architecture endianess
- */
-
-void fee_pkt_hdr_to_cpu(struct fee_data_pkt *pkt)
+static void fee_pkt_event_to_cpu_internal(struct fee_data_pkt *pkt)
 {
-	pkt->hdr.data_len	= __be16_to_cpu(pkt->hdr.data_len);
-	pkt->hdr.fee_pkt_type   = __be16_to_cpu(pkt->hdr.fee_pkt_type);
-	pkt->hdr.frame_cntr	= __be16_to_cpu(pkt->hdr.frame_cntr);
-	pkt->hdr.seq_cntr	= __be16_to_cpu(pkt->hdr.seq_cntr);
+	size_t i;
+	struct fee_event_detection *ev;
+
+	ev = (struct fee_event_detection *) pkt;
+
+	ev->row = be16_to_cpu(ev->row);
+	ev->col = be16_to_cpu(ev->col);
+
+	for (i = 0; i < FEE_EV_DET_PIXELS; i++)
+		ev->pix[i] = be16_to_cpu(ev->pix[i]);
 }
 
 
 /**
- * @brief check if this is an event packet
- *
- * @returns 0 if not an event packet, bits set otherwise
+ * @brief show the event packet contents
  */
 
-int fee_pkt_is_event(struct fee_data_pkt *pkt)
-{
-	if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_EV_DET)
-		return 1;
-
-	return 0;
-}
-
-
-
-/**
- * @brief show the event info in an event packet
- *
- */
-
-void fee_pkt_show_event(struct fee_data_pkt *pkt)
+static void fee_pkt_show_event_internal(struct fee_data_pkt *pkt)
 {
 	struct fee_event_detection *ev;
 
 
-	if (!fee_pkt_is_event(pkt))
-		return;
-
-
 	ev = (struct fee_event_detection *) pkt;
 
-	printf("Event in ");
 
 	if (pkt->hdr.type.ccd_id == FEE_CCD_ID_2)
 		printf("CDD 2 ");
@@ -95,29 +75,108 @@ void fee_pkt_show_event(struct fee_data_pkt *pkt)
 
 
 /**
+ * @brief in-place swap header fields to architecture endianess
+ */
+
+void fee_pkt_hdr_to_cpu(struct fee_data_pkt *pkt)
+{
+	pkt->hdr.data_len	= __be16_to_cpu(pkt->hdr.data_len);
+	pkt->hdr.fee_pkt_type   = __be16_to_cpu(pkt->hdr.fee_pkt_type);
+	pkt->hdr.frame_cntr	= __be16_to_cpu(pkt->hdr.frame_cntr);
+	pkt->hdr.seq_cntr	= __be16_to_cpu(pkt->hdr.seq_cntr);
+}
+
+
+
+/**
+ * @brief check if this is an event packet
+ *
+ * @returns 0 if not an event packet, bits set otherwise
+ */
+
+int fee_pkt_is_event(struct fee_data_pkt *pkt)
+{
+	if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_EV_DET)
+		return 1;
+
+	return 0;
+}
+
+
+/**
+ * @brief check if this is an wandering mask packet
+ *
+ * @returns 0 if not an wandering mask packet, bits set otherwise
+ */
+
+int fee_pkt_is_wandering_mask(struct fee_data_pkt *pkt)
+{
+	if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_WMASK)
+		return 1;
+
+	return 0;
+}
+
+
+/**
+ * @brief show the event info in an event packet
+ *
+ */
+
+void fee_pkt_show_event(struct fee_data_pkt *pkt)
+{
+	if (!fee_pkt_is_event(pkt))
+		return;
+
+	printf("Event in ");
+	fee_pkt_show_event_internal(pkt);
+}
+
+
+/**
+ * @brief show the wandering mask info
+ *
+ * @note wandering masks use the same data structure as events
+ *
+ */
+
+void fee_pkt_show_wandering_mask(struct fee_data_pkt *pkt)
+{
+	if (!fee_pkt_is_wandering_mask(pkt))
+		return;
+
+	printf("Wandering mask of ");
+	fee_pkt_show_event_internal(pkt);
+}
+
+
+
+/**
  * @brief swap the data endianess in an event packet
  *
  */
 
 void fee_pkt_event_to_cpu(struct fee_data_pkt *pkt)
 {
-	size_t i;
-	struct fee_event_detection *ev;
-
-
 	if (!fee_pkt_is_event(pkt))
 		return;
 
-
-	ev = (struct fee_event_detection *) pkt;
-
-	ev->row = be16_to_cpu(ev->row);
-	ev->col = be16_to_cpu(ev->col);
-
-	for (i = 0; i < FEE_EV_DET_PIXELS; i++)
-		ev->pix[i] = be16_to_cpu(ev->pix[i]);
-
+	fee_pkt_event_to_cpu_internal(pkt);
 }
+
+/**
+ * @brief swap the data endianess in an event packet
+ *
+ */
+
+void fee_pkt_wandering_mask_to_cpu(struct fee_data_pkt *pkt)
+{
+	if (!fee_pkt_is_wandering_mask(pkt))
+		return;
+
+	fee_pkt_event_to_cpu_internal(pkt);
+}
+
 
 
 /**
@@ -438,6 +497,8 @@ int fee_ft_aggregate(struct fee_ft_data *ft, struct fee_data_pkt *pkt)
 			ret = -1;
 		}
 	} else if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_EV_DET) {
+		ret = 0;	/* don't care */
+	} else if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_WMASK) {
 		ret = 0;	/* don't care */
 	} else {
 		printf("Unknown pkt type %d\n", pkt->hdr.fee_pkt_type);
