@@ -263,6 +263,7 @@ void smile_fee_set_trap_pumping_dwell_counter(uint32_t dwell_counter);
 uint16_t smile_fee_get_int_period(void);
 void smile_fee_set_readout_node_sel(uint32_t nodes);
 void smile_fee_set_digitise_en(uint32_t mode);
+void smile_fee_set_sync_sel(uint32_t mode);
 void smile_fee_set_correction_bypass(uint32_t mode);
 void smile_fee_set_dg_en(uint32_t mode);
 #if 0

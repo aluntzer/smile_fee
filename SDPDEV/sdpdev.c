@@ -1048,6 +1048,13 @@ static void smile_fee_test789(void)
 	smile_fee_sync_edu_wandering_mask_en(DPU2FEE);
 #endif
 
+#define SYNC_SEL_TEST 1
+#if SYNC_SEL_TEST
+	smile_fee_set_sync_sel(1);
+	smile_fee_sync_sync_sel(DPU2FEE);
+#endif
+
+
 	/* flush all pending transfers */
 	sync_rmap();
 
@@ -1101,6 +1108,14 @@ static void smile_fee_test789(void)
 								pkt->hdr.frame_cntr,
 								pkt->hdr.data_len,
 								pkt->hdr.fee_pkt_type);
+
+#if SYNC_SEL_TEST
+			static int sync_cnt;
+			if (sync_cnt++ > 3) {
+				smile_fee_set_sync_sel(0);
+				smile_fee_sync_sync_sel(DPU2FEE);
+			}
+#endif
 		}
 
 		if (fee_pkt_is_wandering_mask(pkt)) {

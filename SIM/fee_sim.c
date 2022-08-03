@@ -1114,6 +1114,54 @@ static void fee_sim_send_data_payload(struct sim_net_cfg *cfg,
 }
 
 
+/**
+ * @brief send a packet with event type payload
+ *
+ * @note this permanently converts the endianess of the payload, but
+ *	 restores the endianess of the header
+ */
+
+static void fee_sim_send_event_payload(struct sim_net_cfg *cfg,
+				       struct fee_event_detection *pkt)
+{
+	size_t i;
+
+
+	/* swap ED data endianess */
+	pkt->row = cpu_to_be16(pkt->row);
+	pkt->col = cpu_to_be16(pkt->col);
+
+	for (i = 0; i < FEE_EV_DET_PIXELS; i++)
+		pkt->pix[i] = cpu_to_be16(pkt->pix[i]);
+
+	/* swap header endianess for temporarily for transfer */
+	fee_sim_hdr_cpu_to_tgt(&pkt->hdr);
+
+	fee_send_non_rmap(cfg, (uint8_t *) pkt, sizeof(struct fee_event_detection));
+
+	fee_sim_hdr_tgt_to_cpu(&pkt->hdr);
+	fee_sim_hdr_inc_seq_cntr(&pkt->hdr);
+}
+
+
+/**
+ * @brief send a packet of event detection payload as wandering mask type
+ */
+
+
+static void fee_sim_send_wmask_payload(struct sim_net_cfg *cfg,
+				       struct fee_event_detection *pkt)
+{
+	/* temporarily change it to mask type */
+	fee_sim_hdr_set_pkt_type(&pkt->hdr, FEE_PKT_TYPE_WMASK);
+
+	fee_sim_send_event_payload(cfg, pkt);
+
+	/* back to EV_DET type */
+	fee_sim_hdr_set_pkt_type(&pkt->hdr, FEE_PKT_TYPE_EV_DET);
+}
+
+
 
 /**
  * @brief send buffer in chunks according to the configuration
@@ -1284,39 +1332,36 @@ static void fee_sim_frame_transfer(struct sim_net_cfg *cfg,  uint8_t fee_mode,
 		fee_sim_destroy_hk_data_payload(hk);
 	}
 
+
+	/* common settings for all CCD sides */
+	fee_sim_hdr_set_pkt_type(&pld->pkt->hdr, FEE_PKT_TYPE_DATA);
+	fee_sim_hdr_set_fee_mode(&pld->pkt->hdr, fee_mode);
+
 	/* E2 next (if set) */
 	if (E2) {
-		fee_sim_hdr_set_pkt_type(&pld->pkt->hdr, FEE_PKT_TYPE_DATA);
 		fee_sim_hdr_set_ccd_side(&pld->pkt->hdr, FEE_CCD_SIDE_E);
 		fee_sim_hdr_set_ccd_id(&pld->pkt->hdr,   FEE_CCD_ID_2);
-		fee_sim_hdr_set_fee_mode(&pld->pkt->hdr, fee_mode);
 		fee_sim_tx_payload_data(cfg, pld, E2, n);
 	}
 
 	/* F2 next (if set) */
 	if (F2) {
-		fee_sim_hdr_set_pkt_type(&pld->pkt->hdr, FEE_PKT_TYPE_DATA);
 		fee_sim_hdr_set_ccd_side(&pld->pkt->hdr, FEE_CCD_SIDE_F);
 		fee_sim_hdr_set_ccd_id(&pld->pkt->hdr,   FEE_CCD_ID_2);
-		fee_sim_hdr_set_fee_mode(&pld->pkt->hdr, fee_mode);
 		fee_sim_tx_payload_data(cfg, pld, F2, n);
 	}
 
 	/* E4 next (if set) */
 	if (E4) {
-		fee_sim_hdr_set_pkt_type(&pld->pkt->hdr, FEE_PKT_TYPE_DATA);
 		fee_sim_hdr_set_ccd_side(&pld->pkt->hdr, FEE_CCD_SIDE_E);
 		fee_sim_hdr_set_ccd_id(&pld->pkt->hdr,   FEE_CCD_ID_4);
-		fee_sim_hdr_set_fee_mode(&pld->pkt->hdr, fee_mode);
 		fee_sim_tx_payload_data(cfg, pld, E4, n);
 	}
 
 	/* F4 next (if set) */
 	if (F4) {
-		fee_sim_hdr_set_pkt_type(&pld->pkt->hdr, FEE_PKT_TYPE_DATA);
 		fee_sim_hdr_set_ccd_side(&pld->pkt->hdr, FEE_CCD_SIDE_F);
 		fee_sim_hdr_set_ccd_id(&pld->pkt->hdr,   FEE_CCD_ID_4);
-		fee_sim_hdr_set_fee_mode(&pld->pkt->hdr, fee_mode);
 		fee_sim_tx_payload_data(cfg, pld, F4, n);
 	}
 
@@ -1419,7 +1464,7 @@ static uint16_t *fee_sim_get_ft_data(uint16_t *ccd, size_t rows, size_t cols,
  * comparsison function for qsort
  */
 
-int compar(const void *a, const void *b)
+static int compar(const void *a, const void *b)
 {
 	return (*(uint16_t *) a - *(uint16_t *) b);
 }
@@ -1428,7 +1473,7 @@ int compar(const void *a, const void *b)
  * find the median (via qusort)
  */
 
-uint16_t median(uint16_t *base, size_t nmemb)
+static uint16_t median(uint16_t *base, size_t nmemb)
 {
 	uint16_t med;
 
@@ -1475,7 +1520,10 @@ static uint16_t fee_sim_get_local_background(struct fee_event_detection *pkt)
 }
 
 
-/*
+/**
+ *
+ * @brief check pixel for event and if so, send it
+ *
  * 9 Event detection algorithm
  *
  *
@@ -1506,12 +1554,11 @@ static int fee_sim_check_event_pixel(struct sim_net_cfg *cfg,
 	/* central pixel */
 	pix = frame[idx];
 
-
 	/* collect event area into packet */
 	for (i = 2; i >= -2; i--) {
-		for (j = -2; j <= 2; j++)
+		for (j = -2; j <= 2; j++) {
 			pkt->pix[cnt++] = frame[idx + j * cols + i];
-
+		}
 	}
 
 	/* below threshold, no point in doing other checks */
@@ -1535,18 +1582,7 @@ static int fee_sim_check_event_pixel(struct sim_net_cfg *cfg,
 	if (ev != 8)	/* no event */
 		return 0;
 
-	/* swap ED data endianess */
-	pkt->row = cpu_to_be16(pkt->row);
-	pkt->col = cpu_to_be16(pkt->col);
-
-	for (i = 0; i < FEE_EV_DET_PIXELS; i++)
-		pkt->pix[i] = cpu_to_be16(pkt->pix[i]);
-
-	/* send event */
-	fee_sim_hdr_cpu_to_tgt(&pkt->hdr);
-	fee_send_non_rmap(cfg, (uint8_t *) pkt, sizeof(struct fee_event_detection));
-	fee_sim_hdr_tgt_to_cpu(&pkt->hdr);
-	fee_sim_hdr_inc_seq_cntr(&pkt->hdr);
+	fee_sim_send_event_payload(cfg, pkt);
 
 	return 1;
 
@@ -1569,9 +1605,11 @@ static size_t fee_sim_detect_events(struct sim_net_cfg *cfg,
 	double elapsed_time;
 
 
-	if (!frame) /* unused sides are NULL */
+	/* unused sides are NULL */
+	if (!frame)
 		return 0;
 
+	/* available event packets for this ccd may be used up */
 	if (!ev_max)
 		return 0;
 
@@ -1591,65 +1629,45 @@ static size_t fee_sim_detect_events(struct sim_net_cfg *cfg,
 		size_t c0 = r * cols;
 
 		for (c = 2; c < (cols - 2); c++) {
-			int is_event;
+
 			size_t idx = c0 + c;
 
+
+			/* were all event packets used for this CCD ? */
+			if (ev_max == 0)
+				break;
+
+			/* next pixel */
 			pkt->row = r;
 			pkt->col = c;
 
-#if 0	/* debug */
-			if (fee_sim_check_event_pixel(cfg, pkt, frame, idx, cols, threshold))
-					printf("event at %ld %ld, value %d\n", r, c, frame[idx]);
-#else
-			is_event = fee_sim_check_event_pixel(cfg, pkt, frame, idx, cols, threshold);
-			if (is_event) {
+			if (fee_sim_check_event_pixel(cfg, pkt, frame, idx, cols, threshold)) {
 				ev_max--;
-			} else if (smile_fee_get_edu_wandering_mask_en()) {
-
-				/* the wandering mask for a particular frame is only sent
-				 * when it does not coincide with an event in that location.
-				 */
-				if (fee_sim_pix_is_wandering_mask(c, r)) {
-
-					size_t i;
-
-					/* the content is already pre-filled in fee_sim_check_event_pixel()
-					 * we just have to mark is as wandering mask and send it
-					 */
-					/* swap ED data endianess */
-					pkt->row = cpu_to_be16(pkt->row);
-					pkt->col = cpu_to_be16(pkt->col);
-
-					/* temporarily change it to mask type */
-					fee_sim_hdr_set_pkt_type(&pkt->hdr, FEE_PKT_TYPE_WMASK);
-
-					for (i = 0; i < FEE_EV_DET_PIXELS; i++)
-						pkt->pix[i] = cpu_to_be16(pkt->pix[i]);
-
-					/* send event */
-					fee_sim_hdr_cpu_to_tgt(&pkt->hdr);
-					fee_send_non_rmap(cfg, (uint8_t *) pkt, sizeof(struct fee_event_detection));
-					fee_sim_hdr_tgt_to_cpu(&pkt->hdr);
-					fee_sim_hdr_inc_seq_cntr(&pkt->hdr);
-
-					/* back to EV_DET type */
-					fee_sim_hdr_set_pkt_type(&pkt->hdr, FEE_PKT_TYPE_EV_DET);
-				}
+				continue;
 			}
 
+			/* The wandering mask for a particular frame is only sent
+			 * when it does not coincide with an event in that location.
+			 */
 
-			if (ev_max == 0)
-				break;
-#endif
+			if (!smile_fee_get_edu_wandering_mask_en())
+				continue;
+
+			 /* The content was already filled in fee_sim_check_event_pixel()
+			 * we just have to send it as  wandering mask type if.
+			 */
+			if (fee_sim_pix_is_wandering_mask(c, r))
+				fee_sim_send_wmask_payload(cfg, pkt);
+
 		}
 	}
 
-	/* time in ms  */
 	gettimeofday(&t, NULL);
 	elapsed_time  = (t.tv_sec  - t0.tv_sec)  * 1000.0;
 	elapsed_time += (t.tv_usec - t0.tv_usec) / 1000.0;
 	printf("event detection in %g ms\n", elapsed_time);
 
+	/* event packets remainig */
 	return ev_max;
 }
 
@@ -1778,11 +1796,6 @@ static void fee_sim_exec_ft_mode(struct sim_net_cfg *cfg)
 		fee_sim_hdr_cpu_to_tgt(&ev_pkt.hdr);
 		fee_send_non_rmap(cfg, (uint8_t *) &ev_pkt, sizeof(struct fee_event_detection));
 	}
-
-	/* TODO: if event detection is active, send a last_packet
-	 * header to indicate end of frame when either the number of remaining
-	 * events to send is 0 (NOTE: this is a per-CCD limit!) OR the last frame is fully processed
-	 */
 
 #ifdef SIM_DUMP_FITS
 	/* for testing */
@@ -2242,24 +2255,45 @@ void fee_sim_main(struct sim_net_cfg *cfg)
 			continue;
 		}
 
-		printf("EXECUTE OP!\n");
-		fee_sim_exec(cfg);
+		do {
+			struct timeval t0, t;
+			useconds_t elapsed_time;
 
-		smile_fee_set_execute_op(0);
-		printf("OP complete\n");
+			gettimeofday(&t0, NULL);
 
-		/* XXX it is unclear from the documentation, whether the
-		 * wandering mask location is incremented in every cycle or
-		 * just in case of
-		 * 1) wandering mask is enabled
-		 * 2) ED is enabled
-		 *
-		 * we'll assume 1) + 2)
-		 */
+			printf("EXECUTE OP!\n");
 
-		if (smile_fee_get_edu_wandering_mask_en())
-			if (smile_fee_get_event_detection())
-				fee_sim_move_wandering_mask();
+			/* this always clears immediately */
+			smile_fee_set_execute_op(0);
+			fee_sim_exec(cfg);
+
+			printf("OP complete\n");
+
+			/* XXX it is unclear from the documentation, whether the
+			 * wandering mask location is incremented in every cycle or
+			 * just in case of
+			 * 1) wandering mask is enabled
+			 * 2) ED is enabled
+			 *
+			 * we'll assume 1) + 2)
+			 */
+
+			if (smile_fee_get_edu_wandering_mask_en())
+				if (smile_fee_get_event_detection())
+					fee_sim_move_wandering_mask();
+
+			/* simulate int_period */
+			gettimeofday(&t, NULL);
+			elapsed_time  = (useconds_t) (t.tv_sec  - t0.tv_sec)  * 1000.0;
+			elapsed_time += (useconds_t) (t.tv_usec - t0.tv_usec) / 1000.0;
+
+			if (elapsed_time < (useconds_t) smile_fee_get_int_period() * 1000)
+				usleep(((useconds_t) smile_fee_get_int_period() * 1000) - elapsed_time);
+
+			printf("int_period cycle complete\n");
+
+
+		} while (smile_fee_get_sync_sel());
 	}
 
 	free(CCD2E);
