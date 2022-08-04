@@ -270,16 +270,16 @@ static uint32_t rmap_rx(uint8_t *pkt)
 static void sync_rmap(void)
 {
 	int cnt = 0;
-	printf("\nsyncing...");
+//	printf("\nsyncing...");
 	while (smile_fee_rmap_sync_status()) {
 		usleep(10000);
 		if (cnt++ > 10) {
-			printf("aborting; de");
+//			printf("aborting; de");
 			break;
 		}
 
 	}
-	printf("synced\n\n");
+//	printf("synced\n\n");
 }
 
 
@@ -864,9 +864,8 @@ static void smile_fee_test789(void)
 	printf("Test: EV detection sim \n");
 
 
-
-#define UPLOAD 1
-#ifdef UPLOAD
+#define UPLOAD 0
+#if UPLOAD
 	/* setup ED sim data in local SRAM copy */
 
 
@@ -957,7 +956,6 @@ static void smile_fee_test789(void)
 
 #endif
 
-
 	/* update local configuration of all used registers
 	 * note: we naively issue syncs for all the register field names
 	 * as we use them; many of these are actually part of the same
@@ -1046,11 +1044,17 @@ static void smile_fee_test789(void)
 #if WANDERING_MASK_TEST
 	smile_fee_set_edu_wandering_mask_en(1);
 	smile_fee_sync_edu_wandering_mask_en(DPU2FEE);
+#else
+	smile_fee_set_edu_wandering_mask_en(0);
+	smile_fee_sync_edu_wandering_mask_en(DPU2FEE);
 #endif
 
-#define SYNC_SEL_TEST 1
+#define SYNC_SEL_TEST 0
 #if SYNC_SEL_TEST
 	smile_fee_set_sync_sel(1);
+	smile_fee_sync_sync_sel(DPU2FEE);
+#else
+	smile_fee_set_sync_sel(0);
 	smile_fee_sync_sync_sel(DPU2FEE);
 #endif
 
@@ -1084,10 +1088,12 @@ static void smile_fee_test789(void)
 
 		n  = pkt_rx(NULL);
 
-		if (n)
+		if (n) {
 			pkt = (struct fee_data_pkt *) malloc(n);
-		else
+		} else {
+			sync_rmap();
 			continue;
+		}
 
 		n = pkt_rx((uint8_t *) pkt);
 
@@ -1104,21 +1110,51 @@ static void smile_fee_test789(void)
 		fee_pkt_hdr_to_cpu(pkt);
 
 		if (pkt->hdr.type.last_pkt) {
+
+
 			printf("last packet, seq %d, frame %d, data len %d type field %x\n", pkt->hdr.seq_cntr,
 								pkt->hdr.frame_cntr,
 								pkt->hdr.data_len,
 								pkt->hdr.fee_pkt_type);
 
+			if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_HK)
+				printf("last packet was of type HK\n");
+			if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_DATA)
+				printf("last packet was of type DATA\n");
+			if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_WMASK)
+				printf("last packet was of type WMASK\n");
+			if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_EV_DET)
+				printf("last packet was of type EV_DET\n");
+
+
 #if SYNC_SEL_TEST
-			static int sync_cnt;
-			if (sync_cnt++ > 3) {
-				smile_fee_set_sync_sel(0);
-				smile_fee_sync_sync_sel(DPU2FEE);
+			if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_EV_DET) {
+				static int sync_cnt;
+				sync_cnt++;
+				if (sync_cnt == 3) {
+					smile_fee_set_sync_sel(0);
+					smile_fee_sync_sync_sel(DPU2FEE);
+					sync_rmap();
+				}
 			}
 #endif
 		}
 
+		if (!pkt->hdr.type.last_pkt && pkt->hdr.type.pkt_type == FEE_PKT_TYPE_HK) {
+			printf("HK BUT WITHOUT LAST_PACKET!\n");
+			continue;
+		}
+
+
+
 		if (fee_pkt_is_wandering_mask(pkt)) {
+
+			printf("WMASK packet, seq %d, frame %d, data len %d type field %x\n", pkt->hdr.seq_cntr,
+								pkt->hdr.frame_cntr,
+								pkt->hdr.data_len,
+								pkt->hdr.fee_pkt_type);
+
+
 
 			/* wandering masks are identical to events, except for
 			 * the packet type marker
@@ -1136,17 +1172,21 @@ static void smile_fee_test789(void)
 			if (fee_event_is_xray(pkt, 5000, 150*8, 200)) {
 				fwrite((void *)pkt, n, 1, fd);
 				ev_cnt++;
+#define SHOW_EVENTS 0
+#if SHOW_EVENTS
 				fee_pkt_show_event(pkt);
 				printf("ev_cnt %d\n", ev_cnt);
+#endif
 			}
 #if 1
 #endif
 
 			continue; /* for EV_TEST_DIGITISE */
 		}
-
+#if 0
 		if (fee_ft_aggregate(ft, pkt) == 1)
 			break;
+#endif
 
 	}
 	fclose(fd);
