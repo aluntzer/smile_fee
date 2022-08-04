@@ -817,11 +817,13 @@ static void fee_sim_move_wandering_mask(void)
 {
 	/* sim_w_mask is  expected to be pre-initialised */
 
-	sim_w_mask.col++;
+
+	/* the mask always moves by 5 units (confirmed by test with FEE) */
+	sim_w_mask.col += 5;
 	if (sim_w_mask.col > SIM_WANDERING_MASK_COL_END) {
 		sim_w_mask.col = SIM_WANDERING_MASK_COL_START;
 
-		sim_w_mask.row++;
+		sim_w_mask.row += 5;
 		if (sim_w_mask.row > SIM_WANDERING_MASK_ROW_END)
 			sim_w_mask.row = SIM_WANDERING_MASK_ROW_START;
 	}
@@ -1954,9 +1956,36 @@ static void fee_sim_exec_evsim_mode(struct sim_net_cfg *cfg)
 	size_t CCD4_ev_cnt = smile_fee_get_event_pkt_limit();
 
 	struct fee_event_detection ev_pkt = {0};
+	struct fee_hk_data_payload *hk;
+	struct fee_data_payload *pld;
 
 	const size_t rows = FEE_EDU_FRAME_6x6_ROWS;
 	const size_t cols = FEE_EDU_FRAME_6x6_COLS;
+
+
+
+
+	/* XXX split HK into separate function, but NOTE FEE MODE!*/
+	/* in EV SIM mode, first packet in sequence is HK */
+	pld = fee_sim_create_data_payload();
+	fee_sim_hdr_set_logical_addr(&pld->pkt->hdr, DPU_LOGICAL_ADDRESS);
+	fee_sim_hdr_set_protocol_id(&pld->pkt->hdr, FEE_DATA_PROTOCOL);
+	fee_sim_hdr_set_frame_cntr(&pld->pkt->hdr, fee_get_frame_cntr());
+	fee_sim_hdr_set_fee_mode(&pld->pkt->hdr, FEE_MODE_ID_EVSIM);
+
+	hk = fee_sim_create_hk_data_payload();
+
+	if (hk) {
+		/* hk appears to be marked as last_pkt at least in ev detection sim */
+		fee_sim_hdr_set_last_pkt(&pld->pkt->hdr, 1);
+		fee_sim_hdr_set_pkt_type(&pld->pkt->hdr, FEE_PKT_TYPE_HK);
+		fee_sim_tx_payload_data(cfg, pld, (uint8_t *) hk,
+					sizeof(struct fee_hk_data_payload));
+		fee_sim_destroy_hk_data_payload(hk);
+	}
+	fee_sim_destroy_data_payload(pld);
+
+
 
 
 	/* prep EV packet structure */
@@ -1965,6 +1994,7 @@ static void fee_sim_exec_evsim_mode(struct sim_net_cfg *cfg)
 	fee_sim_hdr_set_pkt_type(&ev_pkt.hdr, FEE_PKT_TYPE_EV_DET);
 	fee_sim_hdr_set_frame_cntr(&ev_pkt.hdr, fee_get_frame_cntr());
 	fee_sim_hdr_set_data_len(&ev_pkt.hdr, FEE_EV_DATA_LEN);
+	fee_sim_hdr_set_fee_mode(&ev_pkt.hdr, FEE_MODE_ID_EVSIM);
 
 
 
@@ -2274,13 +2304,14 @@ void fee_sim_main(struct sim_net_cfg *cfg)
 			 * just in case of
 			 * 1) wandering mask is enabled
 			 * 2) ED is enabled
-			 *
-			 * we'll assume 1) + 2)
+			 *u
+			 * ->1) is confirmed by test to be ALWAYS incrementing
+			 *      regardless of WMASK status
+			 *  -> conclusion: 2) is also not true, i.e. it is
+			 *     ALWAYS moving
 			 */
 
-			if (smile_fee_get_edu_wandering_mask_en())
-				if (smile_fee_get_event_detection())
-					fee_sim_move_wandering_mask();
+			fee_sim_move_wandering_mask();
 
 			/* simulate int_period */
 			gettimeofday(&t, NULL);
