@@ -68,10 +68,10 @@
 #define FEE_MODE2_BIN24		0x3	/* 24x4 binning mode */
 
 /* these identifiy the bits in the readout node selection register */
-#define FEE_READOUT_NODE_E2	0b0010
-#define FEE_READOUT_NODE_F2	0b0001
-#define FEE_READOUT_NODE_E4	0b1000
-#define FEE_READOUT_NODE_F4	0b0100
+#define FEE_READOUT_NODE_E2	0x2	/* 0b0010 */
+#define FEE_READOUT_NODE_F2	0x1	/* 0b0001 */
+#define FEE_READOUT_NODE_E4	0x8	/* 0b1000 */
+#define FEE_READOUT_NODE_F4	0x4	/* 0b0100 */
 
 
 /* @see MSSL-SMILE-SXI-IRD-0001 Draft A.14, req. MSSL-IF-108 */
