@@ -18,6 +18,8 @@
 #ifndef _SMILE_FEE_CTRL_H_
 #define _SMILE_FEE_CTRL_H_
 
+
+#include <stddef.h>
 #include <stdint.h>
 
 __extension__

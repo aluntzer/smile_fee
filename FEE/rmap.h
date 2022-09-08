@@ -19,6 +19,7 @@
 #ifndef RMAP_H
 #define RMAP_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 /**
