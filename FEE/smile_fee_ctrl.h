@@ -18,7 +18,6 @@
 #ifndef _SMILE_FEE_CTRL_H_
 #define _SMILE_FEE_CTRL_H_
 
-
 #include <stddef.h>
 #include <stdint.h>
 
@@ -101,6 +100,9 @@ struct smile_fee_mirror {
 	/* arbitaray ram area */
 	uint8_t *sram;
 };
+
+
+void smile_fee_print_mirrorval(void);
 
 /* register sync */
 

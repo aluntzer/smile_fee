@@ -63,6 +63,18 @@
 static struct smile_fee_mirror *smile_fee;
 
 
+void smile_fee_print_mirrorval(void)
+{
+	size_t i;
+	uint32_t *m = (uint32_t *) smile_fee;
+
+	for (i = 0; i < 27; i++)
+		printf("[%02x]: %08lx\n", i*4, m[i]);
+
+}
+
+
+
 
 /**
  * @brief get the start of vertical row shared with charge injection
@@ -2911,7 +2923,7 @@ void smile_fee_set_hk_frame_counter(uint16_t frame_counter)
 
 uint8_t smile_fee_get_hk_fpga_op_mode(void)
 {
-	return (uint8_t) be32_to_cpu(smile_fee->hk_reg_33) & 0x7FUL;
+	return (uint8_t) (be32_to_cpu(smile_fee->hk_reg_33) >> 2) & 0xFUL;
 }
 
 
@@ -2924,8 +2936,9 @@ void smile_fee_set_hk_fpga_op_mode(uint8_t fpga_op_mode)
 {
 	be32_to_cpus(&smile_fee->hk_reg_33);
 
-	smile_fee->hk_reg_33 &= ~0x7FUL;
-	smile_fee->hk_reg_33 |= 0x7FUL & (uint32_t) fpga_op_mode;
+	smile_fee->hk_reg_33 &= ~(0xFUL << 2);
+
+	smile_fee->hk_reg_33 |= (fpga_op_mode & 0xF) << 2;
 
 	cpu_to_be32s(&smile_fee->hk_reg_33);
 }
