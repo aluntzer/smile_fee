@@ -777,7 +777,7 @@ static void ccd_sim_refresh(void)
 
 	ccd_sim_clear();
 
-	tint_ms = smile_fee_get_int_period();
+	tint_ms = smile_fee_get_int_sync_period();
 
 	if (CFG_SIM_DARK)
 		ccd_sim_add_dark(tint_ms);
@@ -1163,22 +1163,36 @@ static void fee_sim_send_wmask_payload(struct sim_net_cfg *cfg,
 	fee_sim_hdr_set_pkt_type(&pkt->hdr, FEE_PKT_TYPE_EV_DET);
 }
 
+#define PBSTR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
+#define PBWIDTH 60
 
+void progress(double p)
+{
+	int val =  (int) (p * 100);
+	int lpad = (int) (p * PBWIDTH);
+	int rpad = PBWIDTH - lpad;
+	printf("\r%3d%% [%.*s%*s]", val, lpad, PBSTR, rpad, "");
+	fflush(stdout);
+}
 
 /**
  * @brief send buffer in chunks according to the configuration
  */
-
+#define LARGE 100000
 static void fee_sim_tx_payload_data(struct sim_net_cfg *cfg,
 				      struct fee_data_payload *pld,
 				      uint8_t *buf, size_t n)
 {
 	size_t i = 0;
+	size_t tot = n;
 
 
 	fee_sim_hdr_set_last_pkt(&pld->pkt->hdr, 0);
 
 	fee_sim_hdr_set_data_len(&pld->pkt->hdr, pld->data_len_max);
+
+	if (tot > LARGE)
+		printf("large transfer of %d bytes\n\n", n);
 
 	while (n) {
 
@@ -1196,7 +1210,21 @@ static void fee_sim_tx_payload_data(struct sim_net_cfg *cfg,
 		/* send */
 		fee_sim_send_data_payload(cfg, pld);
 		fee_sim_hdr_inc_seq_cntr(&pld->pkt->hdr);
+
+		/* XXX the link speed is 50 mbit and the ASW
+		 * ASW cannot pull packets fast enough to transfer everything
+		 * in one go, so  we'll sleep beetween transfers
+		 * this also stops the network buffers from overflowing
+		 */
+		if (tot > LARGE) {
+			usleep(5000000/8 /  (pld->pkt->hdr.data_len + sizeof(struct fee_data_pkt)));
+			progress((double) i / (double) tot);
+		}
 	}
+
+	if (tot > LARGE)
+		printf("\n");	/* for progress bar */
+
 
 }
 
@@ -1215,21 +1243,22 @@ static void fee_sim_exec_ff_mode(struct sim_net_cfg *cfg, uint8_t fee_mode)
 	size_t n ;
 
 
-
+	/* FF modes read only one CCD at a time and
+	 * as per reg map v0.22 interprets anything that is not CCD2
+	 * to read as CCD4
+	 */
 	if (smile_fee_get_ccd_readout(1)) {
 		E = CCD2E;
 		F = CCD2F;
 		id = FEE_CCD_ID_2;
-	} else if (smile_fee_get_ccd_readout(2)) {
+	} else {
 		E = CCD4E;
 		F = CCD4F;
 		id = FEE_CCD_ID_4;
-	} else {
-		return;
 	}
 
-	/* we transfer BOTH sides */
-	n = 2 * FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS * sizeof(uint16_t);
+
+	n = FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS * sizeof(uint16_t);
 	frame = malloc(n);
 	if (!frame) {
 		perror("malloc");
@@ -1239,7 +1268,7 @@ static void fee_sim_exec_ff_mode(struct sim_net_cfg *cfg, uint8_t fee_mode)
 	/* as per MSSL-IF-115 MSSL-SMILE-SXI-IRD-0001 Draft A0.14, full frame
 	 * transfer pixels are ordered in pairs of FxEx
 	 */
-	for (i = 0; i < FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS; i++) {
+	for (i = 0; i < FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS / 2; i++) {
 		frame[2 * i]     = F[i];
 		frame[2 * i + 1] = E[i];
 	}
@@ -1613,7 +1642,7 @@ static size_t fee_sim_detect_events(struct sim_net_cfg *cfg,
 
 	/* available event packets for this ccd may be used up */
 	if (!ev_max)
-		return 0;
+		goto exit;
 
 	/* detect only if event detection is set */
 	if (!smile_fee_get_event_detection())
@@ -1663,6 +1692,15 @@ static size_t fee_sim_detect_events(struct sim_net_cfg *cfg,
 
 		}
 	}
+
+exit:
+	/* send last packet marker for this side */
+	pkt->row = 0;
+	pkt->col = 0;
+	memset(&pkt->pix, 0, FEE_EV_DET_PIXELS * sizeof(uint16_t));
+	fee_sim_hdr_set_last_pkt(&pkt->hdr, 1);
+	fee_sim_send_event_payload(cfg, pkt);
+	fee_sim_hdr_set_last_pkt(&pkt->hdr, 0);
 
 	gettimeofday(&t, NULL);
 	elapsed_time  = (t.tv_sec  - t0.tv_sec)  * 1000.0;
@@ -2205,7 +2243,7 @@ static void fee_sim_exec(struct sim_net_cfg *cfg)
 		break;
 	case FEE_CMD__ID_IMM_ON:
 		/* immediate on-mode, this is a command, not a mode */
-		printf("Mode %d not implemented\n", mode);
+		printf("Immediate ON\n");
 		break;
 
 	case FEE_MODE_ID_EVSIM:
@@ -2278,7 +2316,7 @@ void fee_sim_main(struct sim_net_cfg *cfg)
 
 	/* simulator main loop */
 	while (1) {
-
+start:
 		if (!smile_fee_get_execute_op()) {
 			/* poll every 1 ms */
 			usleep(1000);
@@ -2313,13 +2351,35 @@ void fee_sim_main(struct sim_net_cfg *cfg)
 
 			fee_sim_move_wandering_mask();
 
+
+
 			/* simulate int_period */
 			gettimeofday(&t, NULL);
-			elapsed_time  = (useconds_t) (t.tv_sec  - t0.tv_sec)  * 1000.0;
-			elapsed_time += (useconds_t) (t.tv_usec - t0.tv_usec) / 1000.0;
+			elapsed_time  = (useconds_t) (t.tv_sec  - t0.tv_sec)  * 1000000.0;
+			elapsed_time += (useconds_t) (t.tv_usec - t0.tv_usec);
 
-			if (elapsed_time < (useconds_t) smile_fee_get_int_period() * 1000)
-				usleep(((useconds_t) smile_fee_get_int_period() * 1000) - elapsed_time);
+			if (!smile_fee_get_sync_sel())
+				break;
+
+			while (elapsed_time  < (useconds_t) smile_fee_get_int_sync_period() * 1000) {
+
+				useconds_t slp;
+
+				if (smile_fee_get_ccd_mode_config() == FEE_CMD__ID_IMM_ON) {
+					printf("got IMM_ON cmd\n");
+					smile_fee_set_ccd_mode_config(FEE_MODE_ID_ON);
+					goto start;
+				}
+
+				/* sleep in 100ths of the int period to allow
+				 * some cmd processing
+				 */
+				slp = (useconds_t) (smile_fee_get_int_sync_period() * 10);
+				usleep(slp);
+
+				elapsed_time += slp;
+
+			}
 
 			printf("int_period cycle complete\n");
 

@@ -24,7 +24,7 @@
 __extension__
 struct smile_fee_mirror {
 
-	/* FEE RW registers (SMILE-MSSL-PL-Register_map_v0.22) */
+	/* FEE RW registers (SMILE-MSSL-PL-Register_map_v0.38) */
 	/* (includes unused) */
 	uint32_t cfg_reg_0;
 	uint32_t cfg_reg_1;
@@ -32,10 +32,10 @@ struct smile_fee_mirror {
 	uint32_t cfg_reg_3;
 	uint32_t cfg_reg_4;
 	uint32_t cfg_reg_5;
-	uint32_t cfg_reg_6;	/* unused */
-	uint32_t cfg_reg_7;     /* unused */
-	uint32_t cfg_reg_8;     /* unused */
-	uint32_t cfg_reg_9;     /* unused */
+	uint32_t cfg_reg_6;
+	uint32_t cfg_reg_7;
+	uint32_t cfg_reg_8;
+	uint32_t cfg_reg_9;
 	uint32_t cfg_reg_10;    /* unused */
 	uint32_t cfg_reg_11;    /* unused */
 	uint32_t cfg_reg_12;    /* unused */
@@ -52,11 +52,10 @@ struct smile_fee_mirror {
 	uint32_t cfg_reg_23;
 	uint32_t cfg_reg_24;
 	uint32_t cfg_reg_25;
-	uint32_t cfg_reg_26;
 
-	/* FEE  RO registers (SMILE-MSSL-PL-Register_map_v0.22) */
+	/* FEE  RO registers (SMILE-MSSL-PL-Register_map_v0.38) */
 
-	uint32_t unused[423];	/* gap */
+	uint32_t unused[422];	/* gap */
 
 	uint32_t hk_reg_0;	/* reserved */
 	uint32_t hk_reg_1;	/* reserved */
@@ -119,6 +118,10 @@ int smile_fee_sync_cfg_reg_2(enum sync_direction dir);
 int smile_fee_sync_cfg_reg_3(enum sync_direction dir);
 int smile_fee_sync_cfg_reg_4(enum sync_direction dir);
 int smile_fee_sync_cfg_reg_5(enum sync_direction dir);
+int smile_fee_sync_cfg_reg_6(enum sync_direction dir);
+int smile_fee_sync_cfg_reg_7(enum sync_direction dir);
+int smile_fee_sync_cfg_reg_8(enum sync_direction dir);
+int smile_fee_sync_cfg_reg_9(enum sync_direction dir);
 int smile_fee_sync_cfg_reg_14(enum sync_direction dir);
 int smile_fee_sync_cfg_reg_15(enum sync_direction dir);
 int smile_fee_sync_cfg_reg_16(enum sync_direction dir);
@@ -131,7 +134,6 @@ int smile_fee_sync_cfg_reg_22(enum sync_direction dir);
 int smile_fee_sync_cfg_reg_23(enum sync_direction dir);
 int smile_fee_sync_cfg_reg_24(enum sync_direction dir);
 int smile_fee_sync_cfg_reg_25(enum sync_direction dir);
-int smile_fee_sync_cfg_reg_26(enum sync_direction dir);
 
 int smile_fee_sync_hk_regs(void);
 
@@ -151,27 +153,36 @@ int smile_fee_sync_tri_level_clk(enum sync_direction dir);
 int smile_fee_sync_img_clk_dir(enum sync_direction dir);
 int smile_fee_sync_reg_clk_dir(enum sync_direction dir);
 int smile_fee_sync_packet_size(enum sync_direction dir);
-int smile_fee_sync_int_period(enum sync_direction dir);
-#if 0
-int smile_fee_sync_trap_pumping_dwell_counter(enum sync_direction dir);
-#endif
+int smile_fee_sync_cdsclp_hi(enum sync_direction dir);
+int smile_fee_sync_adc_pwrdn_en(enum sync_direction dir);
+
+
+
+int smile_fee_sync_trap_pumping_dwell_term(enum sync_direction dir);
 int smile_fee_sync_sync_sel(enum sync_direction dir);
+int smile_fee_sync_sel_pwr_syncl(enum sync_direction dir);
+int smile_fee_sync_use_pwr_sync(enum sync_direction dir);
 int smile_fee_sync_readout_node_sel(enum sync_direction dir);
 int smile_fee_sync_digitise_en(enum sync_direction dir);
 int smile_fee_sync_correction_bypass(enum sync_direction dir);
 int smile_fee_sync_dg_en(enum sync_direction dir);
-#if 0
+int smile_fee_sync_readout_pause_counter(enum sync_direction dir);
 int smile_fee_sync_trap_pumping_shuffle_counter(enum sync_direction dir);
-#endif
-int smile_fee_sync_clear_full_sun_counters(enum sync_direction dir);
+int smile_fee_sync_correction_type(enum sync_direction dir);
 int smile_fee_sync_edu_wandering_mask_en(enum sync_direction dir);
+int smile_fee_sync_pix_offset(enum sync_direction dir);
+int smile_fee_sync_int_sync_period(enum sync_direction dir);
+int smile_fee_sync_cdsclp_lo(enum sync_direction dir);
+int smile_fee_sync_rowclp_hi(enum sync_direction dir);
 int smile_fee_sync_ccd2_vod_config(enum sync_direction dir);
 int smile_fee_sync_ccd4_vod_config(enum sync_direction dir);
 int smile_fee_sync_ccd2_vrd_config(enum sync_direction dir);
 int smile_fee_sync_ccd4_vrd_config(enum sync_direction dir);
 int smile_fee_sync_ccd2_vgd_config(enum sync_direction dir);
 int smile_fee_sync_ccd4_vgd_config(enum sync_direction dir);
+int smile_fee_sync_ccd_vog_config(enum sync_direction dir);
 int smile_fee_sync_vod_config(enum sync_direction dir);
+int smile_fee_sync_rowclp_lo(enum sync_direction dir);
 int smile_fee_sync_h_start(enum sync_direction dir);
 int smile_fee_sync_ccd_mode_config(enum sync_direction dir);
 int smile_fee_sync_ccd_mode2_config(enum sync_direction dir);
@@ -181,7 +192,6 @@ int smile_fee_sync_ccd2_e_pix_threshold(enum sync_direction dir);
 int smile_fee_sync_ccd2_f_pix_threshold(enum sync_direction dir);
 int smile_fee_sync_ccd4_e_pix_threshold(enum sync_direction dir);
 int smile_fee_sync_ccd4_f_pix_threshold(enum sync_direction dir);
-int smile_fee_sync_pix_offset(enum sync_direction dir);
 int smile_fee_sync_event_pkt_limit(enum sync_direction dir);
 int smile_fee_sync_execute_op(enum sync_direction dir);
 int smile_fee_sync_full_sun_pix_threshold(enum sync_direction dir);
@@ -206,22 +216,25 @@ uint16_t smile_fee_get_h_end(void);
 uint32_t smile_fee_get_charge_injection(void);
 uint32_t smile_fee_get_tri_level_clk(void);
 uint32_t smile_fee_get_img_clk_dir(void);
+uint32_t smile_fee_get_reg_clk_dir(void);
 uint32_t smile_fee_get_clk_dir(void);
 uint16_t smile_fee_get_packet_size(void);
-uint16_t smile_fee_get_int_period(void);
-#if 0
-uint32_t smile_fee_get_trap_pumping_dwell_counter(void);
-#endif
+uint32_t smile_fee_get_trap_pumping_dwell_term(void);
 uint32_t smile_fee_get_sync_sel(void);
+uint32_t smile_fee_get_sel_pwr_sync(void);
+uint32_t smile_fee_get_use_pwr_sync(void);
 uint16_t smile_fee_get_readout_node_sel(void);
+uint16_t smile_fee_get_readout_pause_counter(void);
 uint32_t smile_fee_get_digitise_en(void);
 uint32_t smile_fee_get_correction_bypass(void);
 uint32_t smile_fee_get_dg_en(void);
-#if 0
 uint16_t smile_fee_get_trap_pumping_shuffle_counter(void);
-#endif
-uint32_t smile_fee_get_clear_full_sun_counters(void);
+uint32_t smile_fee_get_correction_type(void);
 uint32_t smile_fee_get_edu_wandering_mask_en(void);
+int16_t smile_fee_get_pix_offset(void);
+uint32_t smile_fee_get_int_sync_period(void);
+uint16_t smile_fee_get_cdsclp_hi(void);
+uint16_t smile_fee_get_cdsclp_lo(void);
 uint32_t smile_fee_get_ccd2_vod_config(void);
 uint32_t smile_fee_get_ccd4_vod_config(void);
 uint32_t smile_fee_get_ccd2_vrd_config(void);
@@ -229,6 +242,7 @@ uint32_t smile_fee_get_ccd4_vrd_config(void);
 uint32_t smile_fee_get_ccd2_vgd_config(void);
 uint32_t smile_fee_get_ccd4_vgd_config(void);
 uint32_t smile_fee_get_ccd_vog_config(void);
+uint16_t smile_fee_get_rowclp_lo(void);
 uint16_t smile_fee_get_h_start(void);
 uint8_t smile_fee_get_ccd_mode_config(void);
 uint8_t smile_fee_get_ccd_mode2_config(void);
@@ -238,7 +252,6 @@ uint16_t smile_fee_get_ccd2_e_pix_threshold(void);
 uint16_t smile_fee_get_ccd2_f_pix_threshold(void);
 uint16_t smile_fee_get_ccd4_e_pix_threshold(void);
 uint16_t smile_fee_get_ccd4_f_pix_threshold(void);
-uint8_t smile_fee_get_pix_offset(void);
 uint32_t smile_fee_get_event_pkt_limit(void);
 uint32_t smile_fee_get_execute_op(void);
 uint16_t smile_fee_get_full_sun_pix_threshold(void);
@@ -260,21 +273,21 @@ void smile_fee_set_tri_level_clk(uint32_t mode);
 void smile_fee_set_img_clk_dir(uint32_t mode);
 void smile_fee_set_reg_clk_dir(uint32_t mode);
 void smile_fee_set_packet_size(uint16_t pkt_size);
-void smile_fee_set_int_period(uint16_t period);
-#if 0
-void smile_fee_set_trap_pumping_dwell_counter(uint32_t dwell_counter);
-#endif
-uint16_t smile_fee_get_int_period(void);
+void smile_fee_set_trap_pumping_dwell_term(uint32_t dwell);
 void smile_fee_set_readout_node_sel(uint32_t nodes);
+void smile_fee_set_readout_pause_counter(uint16_t readout_pause);
 void smile_fee_set_digitise_en(uint32_t mode);
 void smile_fee_set_sync_sel(uint32_t mode);
+void smile_fee_set_sel_pwr_sync(uint32_t mode);
+void smile_fee_set_use_pwr_sync(uint32_t mode);
 void smile_fee_set_correction_bypass(uint32_t mode);
 void smile_fee_set_dg_en(uint32_t mode);
-#if 0
 void smile_fee_set_trap_pumping_shuffle_counter(uint16_t shuffle_counter);
-#endif
-void smile_fee_set_clear_full_sun_counters(uint32_t mode);
+void smile_fee_set_correction_type(uint32_t mode);
 void smile_fee_set_edu_wandering_mask_en(uint32_t mode);
+void smile_fee_set_pix_offset(int16_t offset);
+void smile_fee_set_int_sync_period(uint32_t period);
+void smile_fee_set_cdsclp_lo(uint16_t cdsclp);
 void smile_fee_set_ccd2_vod_config(uint32_t vod);
 void smile_fee_set_ccd4_vod_config(uint32_t vod);
 void smile_fee_set_ccd2_vrd_config(uint32_t vrd);
@@ -282,6 +295,7 @@ void smile_fee_set_ccd4_vrd_config(uint32_t vrd);
 void smile_fee_set_ccd2_vgd_config(uint32_t vgd);
 void smile_fee_set_ccd4_vgd_config(uint32_t vgd);
 void smile_fee_set_ccd_vog_config(uint32_t vog);
+void smile_fee_set_rowclp_lo(uint16_t rowclp_lo);
 void smile_fee_set_h_start(uint16_t row);
 void smile_fee_set_ccd_mode_config(uint8_t mode);
 void smile_fee_set_ccd_mode2_config(uint8_t mode);
@@ -291,7 +305,6 @@ void smile_fee_set_ccd2_e_pix_threshold(uint16_t threshold);
 void smile_fee_set_ccd2_f_pix_threshold(uint16_t threshold);
 void smile_fee_set_ccd4_e_pix_threshold(uint16_t threshold);
 void smile_fee_set_ccd4_f_pix_threshold(uint16_t threshold);
-void smile_fee_set_pix_offset(uint8_t offset);
 void smile_fee_set_event_pkt_limit(uint32_t pkt_limit);
 void smile_fee_set_execute_op(uint32_t mode);
 void smile_fee_set_full_sun_pix_threshold(uint16_t threshold);
@@ -337,6 +350,7 @@ uint16_t smile_fee_get_hk_van2_pos_raw(void);
 uint16_t smile_fee_get_hk_vdig_raw(void);
 uint16_t smile_fee_get_hk_ig_hi_mon(void);
 uint16_t smile_fee_get_hk_ccd2_vod_mon_f(void);
+uint8_t smile_fee_get_spw_id(void);
 uint8_t smile_fee_get_hk_timecode_from_spw(void);
 uint8_t smile_fee_get_hk_rmap_target_status(void);
 uint32_t smile_fee_get_hk_rmap_target_indicate(void);
@@ -347,12 +361,18 @@ uint32_t smile_fee_get_hk_spw_link_disconnect(void);
 uint32_t smile_fee_get_hk_spw_link_running(void);
 uint32_t smile_fee_get_hk_frame_counter(void);
 uint8_t smile_fee_get_hk_fpga_op_mode(void);
+uint32_t smile_fee_get_hk_error_flag_spw_dac_on_bias_readback(void);
+uint32_t smile_fee_get_hk_error_flag_dac_off_bias_readback_error(void);
+uint32_t smile_fee_get_hk_error_flag_ext_sdram_edac_corr_err_error(void);
+uint32_t smile_fee_get_hk_error_flag_ext_sdram_edac_uncorr_err_error(void);
+uint32_t smile_fee_get_hk_error_flag_spw_link_disconnect_error(void);
 uint32_t smile_fee_get_hk_error_flag_spw_link_escape_error(void);
 uint32_t smile_fee_get_hk_error_flag_spw_link_credit_error(void);
 uint32_t smile_fee_get_hk_error_flag_spw_link_parity_error(void);
 uint8_t smile_fee_get_hk_fpga_minor_version(void);
 uint8_t smile_fee_get_hk_fpga_major_version(void);
 uint16_t smile_fee_get_hk_board_id(void);
+uint16_t smile_fee_get_cmic_corr(void);
 uint16_t smile_fee_get_hk_ccd2_e_pix_full_sun(void);
 uint16_t smile_fee_get_hk_ccd2_f_pix_full_sun(void);
 uint16_t smile_fee_get_hk_ccd4_e_pix_full_sun(void);
@@ -401,6 +421,7 @@ void smile_fee_set_hk_van2_pos_raw(uint16_t van2_pos_raw);
 void smile_fee_set_hk_vdig_raw(uint16_t vdig_raw);
 void smile_fee_set_hk_ig_hi_mon(uint16_t ig_hi_mon);
 void smile_fee_set_hk_ccd2_vod_mon_f(uint16_t ccd2_vod_mon_f);
+void smile_fee_set_spw_id(uint8_t spw_id);
 void smile_fee_set_hk_timecode_from_spw(uint8_t timecode_from_spw);
 void smile_fee_set_hk_rmap_target_status(uint8_t rmap_target_status);
 void smile_fee_set_hk_rmap_target_indicate(uint32_t rmap_target_indicate);
@@ -411,12 +432,18 @@ void smile_fee_set_hk_spw_link_disconnect_error(uint32_t spw_link_disconnect_err
 void smile_fee_set_hk_spw_link_running(uint32_t spw_link_running);
 void smile_fee_set_hk_frame_counter(uint16_t frame_counter);
 void smile_fee_set_hk_fpga_op_mode(uint8_t fpga_op_mode);
+void smile_fee_set_hk_error_flag_dac_off_bias_readback_error(uint32_t error_flag_dac_off_bias_readback_error);
+void smile_fee_set_hk_error_flag_spw_dac_on_bias_readback(uint32_t error_flag_spw_dac_on_bias_readback);
+void smile_fee_set_hk_error_flag_spw_link_disconnect_error(uint32_t error_flag_spw_link_disconnect_error);
+void smile_fee_set_hk_error_flag_ext_sdram_edac_corr_err_error(uint32_t error_flag_ext_sdram_edac_corr_err_error);
+void smile_fee_set_hk_error_flag_ext_sdram_edac_uncorr_err_error(uint32_t error_flag_ext_sdram_edac_corr_err_error);
 void smile_fee_set_hk_error_flag_spw_link_escape_error(uint32_t error_flag_spw_link_escape_error);
 void smile_fee_set_hk_error_flag_spw_link_credit_error(uint32_t error_flag_spw_link_credit_error);
 void smile_fee_set_hk_error_flag_spw_link_parity_error(uint32_t error_flag_spw_link_parity_error);
 void smile_fee_set_hk_fpga_minor_version(uint8_t minor);
 void smile_fee_set_hk_fpga_major_version(uint8_t major);
 void smile_fee_set_hk_board_id(uint16_t id);
+void smile_fee_set_cmic_corr(uint16_t corr);
 void smile_fee_set_hk_ccd2_e_pix_full_sun(uint16_t ccd2_e_pix_full_sun);
 void smile_fee_set_hk_ccd2_f_pix_full_sun(uint16_t ccd2_f_pix_full_sun);
 void smile_fee_set_hk_ccd4_e_pix_full_sun(uint16_t ccd4_e_pix_full_sun);

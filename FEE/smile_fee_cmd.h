@@ -113,9 +113,10 @@ int fee_read_cmd_cfg_reg_2(uint16_t trans_id, uint8_t *cmd);
 int fee_read_cmd_cfg_reg_3(uint16_t trans_id, uint8_t *cmd);
 int fee_read_cmd_cfg_reg_4(uint16_t trans_id, uint8_t *cmd);
 int fee_read_cmd_cfg_reg_5(uint16_t trans_id, uint8_t *cmd);
-#if 0
-int fee_read_cmd_cfg_reg_5(uint16_t trans_id, uint8_t *cmd);
-#endif
+int fee_read_cmd_cfg_reg_6(uint16_t trans_id, uint8_t *cmd);
+int fee_read_cmd_cfg_reg_7(uint16_t trans_id, uint8_t *cmd);
+int fee_read_cmd_cfg_reg_8(uint16_t trans_id, uint8_t *cmd);
+int fee_read_cmd_cfg_reg_9(uint16_t trans_id, uint8_t *cmd);
 int fee_read_cmd_cfg_reg_14(uint16_t trans_id, uint8_t *cmd);
 int fee_read_cmd_cfg_reg_15(uint16_t trans_id, uint8_t *cmd);
 int fee_read_cmd_cfg_reg_16(uint16_t trans_id, uint8_t *cmd);
@@ -138,9 +139,10 @@ int fee_write_cmd_cfg_reg_2(uint16_t trans_id, uint8_t *cmd);
 int fee_write_cmd_cfg_reg_3(uint16_t trans_id, uint8_t *cmd);
 int fee_write_cmd_cfg_reg_4(uint16_t trans_id, uint8_t *cmd);
 int fee_write_cmd_cfg_reg_5(uint16_t trans_id, uint8_t *cmd);
-#if 0
-int fee_write_cmd_cfg_reg_5(uint16_t trans_id, uint8_t *cmd);
-#endif
+int fee_write_cmd_cfg_reg_6(uint16_t trans_id, uint8_t *cmd);
+int fee_write_cmd_cfg_reg_7(uint16_t trans_id, uint8_t *cmd);
+int fee_write_cmd_cfg_reg_8(uint16_t trans_id, uint8_t *cmd);
+int fee_write_cmd_cfg_reg_9(uint16_t trans_id, uint8_t *cmd);
 int fee_write_cmd_cfg_reg_14(uint16_t trans_id, uint8_t *cmd);
 int fee_write_cmd_cfg_reg_15(uint16_t trans_id, uint8_t *cmd);
 int fee_write_cmd_cfg_reg_16(uint16_t trans_id, uint8_t *cmd);

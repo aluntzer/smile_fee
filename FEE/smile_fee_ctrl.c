@@ -49,7 +49,7 @@
  *	    map for changes.
  */
 
-#include <stdio.h>
+#include <debug.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -69,7 +69,7 @@ void smile_fee_print_mirrorval(void)
 	uint32_t *m = (uint32_t *) smile_fee;
 
 	for (i = 0; i < 27; i++)
-		printf("[%02x]: %08lx\n", i*4, m[i]);
+		DBG("[%02x]: %08lx\n", i*4, m[i]);
 
 }
 
@@ -173,6 +173,7 @@ void smile_fee_set_charge_injection_gap(uint16_t gap)
 
 	cpu_to_be32s(&smile_fee->cfg_reg_1);
 }
+
 
 /**
  * @brief get the duration of a parallel overlap period (TOI)
@@ -492,11 +493,12 @@ uint16_t smile_fee_get_packet_size(void)
 	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_4) & 0xFFFFUL);
 }
 
+
 /**
  * @brief set packet size
  *
  * @param pkt_size 10 byte packed header + number of load bytes; number of load
- *		   bytes must be a multiple of 4
+ *		   bytes must be a multiple of 4 (not checked)
  */
 
 void smile_fee_set_packet_size(uint16_t pkt_size)
@@ -511,56 +513,95 @@ void smile_fee_set_packet_size(uint16_t pkt_size)
 
 
 /**
- * @brief get the integration period
+ * @brief get the number of clock cycles after the start of a pixel cycle
+ *	   when the cdsclp will be set to '1' (whatever that is)
  */
 
-uint16_t smile_fee_get_int_period(void)
+uint16_t smile_fee_get_cdsclp_hi(void)
 {
-	return (uint16_t) ((be32_to_cpu(smile_fee->cfg_reg_4) >> 16) & 0xFFFFUL);
+	return (uint16_t) ((be32_to_cpu(smile_fee->cfg_reg_4) >> 16) & 0xFFFUL);
 }
 
 
 /**
- * @brief set the integration period
+ * @brief set the number of clock cycles after the start of a pixel cycle
+ *	   when the cdsclp will be set to '1' (whatever that is)
+ * @note  the value assigned to the cdsclp_hi should be lower than cdsclp_lo
  */
 
-void smile_fee_set_int_period(uint16_t period)
+void smile_fee_set_cdsclp_hi(uint16_t cdsclp)
 {
 	be32_to_cpus(&smile_fee->cfg_reg_4);
 
-	smile_fee->cfg_reg_4 &= ~(0xFFFFUL << 16);
-	smile_fee->cfg_reg_4 |=  (0xFFFFUL & ((uint32_t) period)) << 16;
+	smile_fee->cfg_reg_4 &= ~(0xFFFUL << 16);
+	smile_fee->cfg_reg_4 |=  (0xFFFUL & ((uint32_t) cdsclp)) << 16;
 
 	cpu_to_be32s(&smile_fee->cfg_reg_4);
 }
 
-#if 0
+
 /**
- * @brief get trap pumping dwell counter
+ * @brief get adc power down functionality
+ *
+ * @returns 0 if disabled, bits set otherwise
  */
 
-uint32_t smile_fee_get_trap_pumping_dwell_counter(void)
+uint32_t smile_fee_get_adc_pwrdn_en(void)
+{
+	return (!(be32_to_cpu(smile_fee->cfg_reg_4) >> 28) & 0x1UL);
+}
+
+
+/**
+ * @brief set adc power down functionality
+ *
+ * @param mode 0:disable adc power down, any other value: enable
+ *
+ * @note the logic is inverted in the register map specification
+ *	 but we use 1 for enable and 0 for disable
+ */
+
+void smile_fee_set_adc_pwrdn_en(uint32_t mode)
+{
+	if (!mode)
+		mode = 1;
+	else
+		mode = 0;
+
+	be32_to_cpus(&smile_fee->cfg_reg_4);
+
+	smile_fee->cfg_reg_4 &= ~(0x1UL << 28);
+	smile_fee->cfg_reg_4 |=  (mode << 28);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_4);
+}
+
+
+/**
+ * @brief get trap pumping dwell timer
+ */
+
+uint32_t smile_fee_get_trap_pumping_dwell_term(void)
 {
 	return be32_to_cpu(smile_fee->cfg_reg_5) & 0xFFFFFUL;
 }
 
 
 /**
- * @brief set trap pumping dwell counter
+ * @brief set trap pumping dwell timer
  *
  * @note only lower 20 bits are used
  */
 
-void smile_fee_set_trap_pumping_dwell_counter(uint32_t dwell_counter)
+void smile_fee_set_trap_pumping_dwell_term(uint32_t dwell)
 {
 	be32_to_cpus(&smile_fee->cfg_reg_5);
 
 	smile_fee->cfg_reg_5 &= ~0xFFFFFUL;
-	smile_fee->cfg_reg_5 |=  0xFFFFFUL & dwell_counter;
+	smile_fee->cfg_reg_5 |=  0xFFFFFUL & dwell;
 
 	cpu_to_be32s(&smile_fee->cfg_reg_5);
 }
-#endif /* 0 */
 
 
 /**
@@ -592,6 +633,82 @@ void smile_fee_set_sync_sel(uint32_t mode)
 
 	smile_fee->cfg_reg_5 &= ~(0x1UL << 20);
 	smile_fee->cfg_reg_5 |=  (mode  << 20);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_5);
+}
+
+
+/**
+ * @brief get the pwr sync selected
+ *
+ * @returns 1 when RED_SYNC_IN is used to synchronise pixel readout
+ *	    0 if NAEU_SYNC_IN is used
+ *	    (regmap gives no actual explanation)
+ */
+
+uint32_t smile_fee_get_sel_pwr_sync(void)
+{
+	return (be32_to_cpu(smile_fee->cfg_reg_5) >> 21) & 0x1UL;
+}
+
+
+/**
+ * @brief set the pwr sync to select
+ *
+ * @param mode: 1 to use RED_SYNC_IN to ynchronise pixel readout
+ *	        0 to use NAEU_SYNC_IN
+ *		(regmap gives no actual explanation)
+ *
+ */
+
+void smile_fee_set_sel_pwr_sync(uint32_t mode)
+{
+	if (mode)
+		mode = 1;
+
+
+	be32_to_cpus(&smile_fee->cfg_reg_5);
+
+	smile_fee->cfg_reg_5 &= ~(0x1UL << 21);
+	smile_fee->cfg_reg_5 |=  (mode  << 21);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_5);
+}
+
+
+/**
+ * @brief get the use pwr sync flag
+ *
+ * @returns 1: if synchronise pixel readout with external NAEU_SYNC_IN/RED_SYNC_IN
+ *	    0: off
+ *	    (regmap gives no actual explanation)
+ */
+
+uint32_t smile_fee_get_use_pwr_sync(void)
+{
+	return (be32_to_cpu(smile_fee->cfg_reg_5) >> 22) & 0x1UL;
+}
+
+
+/**
+ * @brief set the use pwr sync flag
+ *
+ * @param mode: 1: synchronise pixel readout with external NAEU_SYNC_IN/RED_SYNC_IN
+ *	        0: off
+ *	        (regmap gives no actual explanation)
+ *
+ */
+
+void smile_fee_set_use_pwr_sync(uint32_t mode)
+{
+	if (mode)
+		mode = 1;
+
+
+	be32_to_cpus(&smile_fee->cfg_reg_5);
+
+	smile_fee->cfg_reg_5 &= ~(0x1UL << 22);
+	smile_fee->cfg_reg_5 |=  (mode  << 22);
 
 	cpu_to_be32s(&smile_fee->cfg_reg_5);
 }
@@ -699,56 +816,28 @@ void smile_fee_set_dg_en(uint32_t mode)
 	cpu_to_be32s(&smile_fee->cfg_reg_5);
 }
 
-#if 0
-/**
- * @brief get trap pumping shuffle counter
- */
-
-uint16_t smile_fee_get_trap_pumping_shuffle_counter(void)
-{
-	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_6) & 0xFFFFUL);
-}
-
 
 /**
- * @brief set trap pumping shuffle counter
+ * @brief get correction type
  *
+ * @return 1 if row and column corrections are added to the corresponding incoming pixels
+ *	   0 if row and column corrections are subtracted from the corresponding incoming pixels
  */
 
-void smile_fee_set_trap_pumping_shuffle_counter(uint16_t shuffle_counter)
-{
-	be32_to_cpus(&smile_fee->cfg_reg_6);
-
-	smile_fee->cfg_reg_6 &= ~0xFFFFUL;
-	smile_fee->cfg_reg_6 |=  0xFFFFUL & ((uint32_t) shuffle_counter);
-
-	cpu_to_be32s(&smile_fee->cfg_reg_6);
-}
-#endif /* 0 */
-
-/**
- * @brief get clear full sun counters
- *
- * @note if this is 1, the full sun counters will be cleared
- * @warn this will happen for every sync DPU2FEE for this register
- *	 so make sure you clear this one after doing it once
- *
- * @returns 0 if clearing is disabled, 1 if enabled
- */
-
-uint32_t smile_fee_get_clear_full_sun_counters(void)
+uint32_t smile_fee_get_correction_type(void)
 {
 	return (be32_to_cpu(smile_fee->cfg_reg_5) >> 26) & 0x1UL;
 }
 
 
 /**
- * @brief set clear full sun counters
+ * @brief set correction type
  *
- * @param mode set to 1 for clearing of the full sun counters
+ * @param mode set 1 if row and column corrections are added to the corresponding incoming pixels
+ *	           0 if row and column corrections are subtracted from the corresponding incoming pixels
  */
 
-void smile_fee_set_clear_full_sun_counters(uint32_t mode)
+void smile_fee_set_correction_type(uint32_t mode)
 {
 	if (mode)
 		mode = 1;
@@ -799,10 +888,14 @@ void smile_fee_set_edu_wandering_mask_en(uint32_t mode)
 /**
  * @brief get the readout node(s) from which read-out is performed
  *
- * @returns 0x5 if read-out via CCD4 F-side and CCD2 F-side
- *	    0x6 if read-out via CCD4 F-side and CCD2 E-side
- *	    0x9 if read-out via CCD4 E-side and CCD2 E-side
- *	    0xF if read-out via CCD4 E&F-side and CCD2 E&F-side
+ * @returns bitmask of readout node configuration
+ * @note order is [CCD4-E:CCD4-F:CCD2-E:CCD2-F], i.e.
+ *	 0x5 if read-out via CCD4 F-side and CCD2 F-side
+ *	 0x6 if read-out via CCD4 F-side and CCD2 E-side
+ *	 0x9 if read-out via CCD4 E-side and CCD2 F-side
+ *	 0xA if read-out via CCD4 E-side and CCD2 E-side
+ *	 0xF if read-out via CCD4 E&F-side and CCD2 E&F-side
+ *	 (these are the modes for flight)
  */
 
 uint16_t smile_fee_get_readout_node_sel(void)
@@ -814,10 +907,15 @@ uint16_t smile_fee_get_readout_node_sel(void)
 /**
  * @brief set the readout node(s) from which read-out is performed
  *
- * @returns 0x5 if read-out via CCD4 F-side and CCD2 F-side
- *	    0x6 if read-out via CCD4 F-side and CCD2 E-side
- *	    0x9 if read-out via CCD4 E-side and CCD2 E-side
- *	    0xF if read-out via CCD4 E&F-side and CCD2 E&F-side
+ * @param nodes bitmask of readout node configuration
+ *
+ * @note order is [CCD4-E:CCD4-F:CCD2-E:CCD2-F], i.e.
+ *	 0x5 if read-out via CCD4 F-side and CCD2 F-side
+ *	 0x6 if read-out via CCD4 F-side and CCD2 E-side
+ *	 0x9 if read-out via CCD4 E-side and CCD2 F-side
+ *	 0xA if read-out via CCD4 E-side and CCD2 E-side
+ *	 0xF if read-out via CCD4 E&F-side and CCD2 E&F-side
+ *	 (these are the modes for flight)
  */
 
 void smile_fee_set_readout_node_sel(uint32_t nodes)
@@ -832,6 +930,195 @@ void smile_fee_set_readout_node_sel(uint32_t nodes)
 	smile_fee->cfg_reg_5 |=  (0xFUL & nodes) << 28;
 
 	cpu_to_be32s(&smile_fee->cfg_reg_5);
+}
+
+
+/**
+ * @brief get full sun pixel threshold
+ *
+ * @note threshold value above which a binned pixel is considered saturated
+ */
+
+uint16_t smile_fee_get_full_sun_pix_threshold(void)
+{
+	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_6) & 0xFFFFUL);
+}
+
+
+/**
+ * @brief set full sun pixel threshold
+ *
+ * @note threshold value above which a binned pixel is considered saturated
+ */
+
+void smile_fee_set_full_sun_pix_threshold(uint16_t threshold)
+{
+	be32_to_cpus(&smile_fee->cfg_reg_6);
+
+	smile_fee->cfg_reg_6 &= ~0xFFFFUL;
+	smile_fee->cfg_reg_6 |=  0xFFFFUL & ((uint32_t) threshold);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_6);
+}
+
+
+/**
+ * @brief get pixel offset value
+ *
+ * @note this signed offset value is added to the average incoming pixel value
+ */
+
+int16_t smile_fee_get_pix_offset(void)
+{
+	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_6 >> 16) & 0xFFFFUL);
+}
+
+
+/**
+ * @brief set pixel offset value
+ *
+ * @offset  the signed offset value to be added to the average incoming pixel value
+ */
+
+void smile_fee_set_pix_offset(int16_t offset)
+{
+	be32_to_cpus(&smile_fee->cfg_reg_6);
+
+	smile_fee->cfg_reg_6 &= ~(0xFFUL << 16);
+	smile_fee->cfg_reg_6 |=  (0xFFUL & ((uint32_t) offset)) << 16;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_6);
+}
+
+
+/**
+ * @brief get the readout pause counter
+ */
+
+uint16_t smile_fee_get_readout_pause_counter(void)
+{
+	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_7) & 0xFFFFUL);
+}
+
+
+/**
+ * @brief set readout pause counter
+ */
+
+void smile_fee_set_readout_pause_counter(uint16_t readout_pause)
+{
+	be32_to_cpus(&smile_fee->cfg_reg_7);
+
+	smile_fee->cfg_reg_7 &= ~0xFFFFUL;
+	smile_fee->cfg_reg_7 |=  0xFFFFUL & ((uint16_t) readout_pause);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_7);
+}
+
+
+/**
+ * @brief get trap pumping shuffle counter
+ */
+
+uint16_t smile_fee_get_trap_pumping_shuffle_counter(void)
+{
+	return (uint16_t) ((be32_to_cpu(smile_fee->cfg_reg_7) >> 16) & 0xFFFFUL);
+}
+
+
+/**
+ * @brief set trap pumping shuffle counter
+ */
+
+void smile_fee_set_trap_pumping_shuffle_counter(uint16_t shuffle_counter)
+{
+	be32_to_cpus(&smile_fee->cfg_reg_7);
+
+	smile_fee->cfg_reg_7 &= ~(0xFFFFUL << 16);
+	smile_fee->cfg_reg_7 |=  (0xFFFFUL & ((uint32_t) shuffle_counter)) << 16;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_7);
+}
+
+
+/**
+ * @brief get the integration period
+ */
+
+uint32_t smile_fee_get_int_sync_period(void)
+{
+	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_8) & 0xFFFFFUL);
+}
+
+
+/**
+ * @brief set the integration period
+ */
+
+void smile_fee_set_int_sync_period(uint32_t period)
+{
+	be32_to_cpus(&smile_fee->cfg_reg_8);
+
+	smile_fee->cfg_reg_8 &= ~0xFFFFFUL;
+	smile_fee->cfg_reg_8 |=  0xFFFFFUL & ((uint32_t) period);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_8);
+}
+
+
+/**
+ * @brief get the number of clock cycles after the start of a pixel cycle
+ *	   when the cdsclp will be set to '0' (whatever that is)
+ */
+
+uint16_t smile_fee_get_cdsclp_lo(void)
+{
+	return (uint16_t) ((be32_to_cpu(smile_fee->cfg_reg_8) >> 20) & 0xFFFUL);
+}
+
+
+/**
+ * @brief set the number of clock cycles after the start of a pixel cycle
+ *	   when the cdsclp will be set to '0' (whatever that is)
+ * @note  the value assigned to the cdsclp_lo should be greater than cdsclp_hi
+ */
+
+void smile_fee_set_cdsclp_lo(uint16_t cdsclp)
+{
+	be32_to_cpus(&smile_fee->cfg_reg_8);
+
+	smile_fee->cfg_reg_8 &= ~(0xFFFUL << 20);
+	smile_fee->cfg_reg_8 |=  (0xFFFUL & ((uint32_t) cdsclp)) << 20;
+
+	cpu_to_be32s(&smile_fee->cfg_reg_8);
+}
+
+
+
+/**
+ * @brief get the number of clock cycles after the start of a pixel cycle
+ *	   when the rowclp will be set to '1' (whatever that is)
+ */
+
+uint16_t smile_fee_get_rowclp_hi(void)
+{
+	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_9) & 0xFFFUL);
+}
+
+
+/**
+ * @brief set the number of clock cycles after the start of a pixel cycle
+ *	   when the rowclp will be set to '1' (whatever that is)
+ */
+
+void smile_fee_set_rowclp_hi(uint16_t rowclp_hi)
+{
+	be32_to_cpus(&smile_fee->cfg_reg_9);
+
+	smile_fee->cfg_reg_9 &= ~0xFFFUL;
+	smile_fee->cfg_reg_9 |=  0xFFFUL & ((uint32_t) rowclp_hi);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_9);
 }
 
 
@@ -1032,6 +1319,33 @@ void smile_fee_set_ccd_vog_config(uint32_t vog)
 
 
 /**
+ * @brief get the number of clock cycles after the start of a pixel cycle
+ *	   when the rowclp will be set to '0' (whatever that is)
+ */
+
+uint16_t smile_fee_get_rowclp_lo(void)
+{
+	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_21) & 0xFFFUL);
+}
+
+
+/**
+ * @brief set the number of clock cycles after the start of a pixel cycle
+ *	   when the rowclp will be set to '0' (whatever that is)
+ */
+
+void smile_fee_set_rowclp_lo(uint16_t rowclp_lo)
+{
+	be32_to_cpus(&smile_fee->cfg_reg_21);
+
+	smile_fee->cfg_reg_21 &= ~0xFFFUL;
+	smile_fee->cfg_reg_21 |=  0xFFFUL & ((uint32_t) rowclp_lo);
+
+	cpu_to_be32s(&smile_fee->cfg_reg_21);
+}
+
+
+/**
  * @brief get start row number
  */
 
@@ -1070,15 +1384,14 @@ void smile_fee_set_h_start(uint16_t row)
  *	0x4 (Full Frame Mode(FF))
  *	0x5 (Reserved)
  *	0x6 (Reserved)
- *	0x7 (Reserved)
+ *	0x7 (Soft Reset) (not specified as such, but likely a command?)
  *	0x8 (Immediate On-Mode) *****This is a command and not a mode
  *	0x9 (Full Frame Sim-all rows)
  *	0xA (Event Detection Sim)
- *	0xB (Parallel trap pumping mode 1 (FF))
- *	0xC (Parallel trap pumping mode 2 (FF))
+ *	0xC (Parallel trap pumping mode 1 (FF))
+ *	0xE (Parallel trap pumping mode 2 (FF))
  *	0xD (Serial trap pumping mode 1 (FF))
- *	0xE (Serial trap pumping mode 2 (FF))
- *	0xF (Reserved)
+ *	0xF (Serial trap pumping mode 2 (FF))
  *
  */
 
@@ -1104,15 +1417,14 @@ uint8_t smile_fee_get_ccd_mode_config(void)
  *	0x4 (Full Frame Mode(FF))
  *	0x5 (Reserved)
  *	0x6 (Reserved)
- *	0x7 (Reserved)
+ *	0x7 (Soft Reset) (not specified as such, but likely a command?)
  *	0x8 (Immediate On-Mode) *****This is a command and not a mode
  *	0x9 (Full Frame Sim-all rows)
  *	0xA (Event Detection Sim)
- *	0xB (Parallel trap pumping mode 1 (FF))
- *	0xC (Parallel trap pumping mode 2 (FF))
+ *	0xC (Parallel trap pumping mode 1 (FF))
+ *	0xE (Parallel trap pumping mode 2 (FF))
  *	0xD (Serial trap pumping mode 1 (FF))
- *	0xE (Serial trap pumping mode 2 (FF))
- *	0xF (Reserved)
+ *	0xF (Serial trap pumping mode 2 (FF))
  *
  * @warn input parameter is not checked for validity
  */
@@ -1154,6 +1466,9 @@ uint8_t smile_fee_get_ccd_mode2_config(void)
 
 void smile_fee_set_ccd_mode2_config(uint8_t mode)
 {
+	if (!mode)	/* 0x0: reserved */
+		return;
+
 	be32_to_cpus(&smile_fee->cfg_reg_21);
 
 	smile_fee->cfg_reg_21 &= ~(0x3UL << 28);
@@ -1364,34 +1679,6 @@ void smile_fee_set_ccd4_f_pix_threshold(uint16_t threshold)
 }
 
 
-/**
- * @brief get pixel offset value
- *
- * @note his offset value is added to the average incoming pixel value
- */
-
-uint8_t smile_fee_get_pix_offset(void)
-{
-	return (uint8_t) (be32_to_cpu(smile_fee->cfg_reg_24) & 0xFFUL);
-}
-
-
-/**
- * @brief set pixel offset value
- *
- * @offset  the offset value to be added to the average incoming pixel value
- */
-
-void smile_fee_set_pix_offset(uint8_t offset)
-{
-	be32_to_cpus(&smile_fee->cfg_reg_24);
-
-	smile_fee->cfg_reg_24 &= ~0xFFUL;
-	smile_fee->cfg_reg_24 |=  0xFFUL & ((uint32_t) offset);
-
-	cpu_to_be32s(&smile_fee->cfg_reg_24);
-}
-
 
 /**
  * @brief get event packet limit
@@ -1467,33 +1754,6 @@ void smile_fee_set_execute_op(uint32_t mode)
 }
 
 
-/**
- * @brief get full sun pixel threshold
- *
- * @note threshold value above which a binned pixel is considered saturated
- */
-
-uint16_t smile_fee_get_full_sun_pix_threshold(void)
-{
-	return (uint16_t) (be32_to_cpu(smile_fee->cfg_reg_26) & 0xFFFFUL);
-}
-
-
-/**
- * @brief set full sun pixel threshold
- *
- * @note threshold value above which a binned pixel is considered saturated
- */
-
-void smile_fee_set_full_sun_pix_threshold(uint16_t threshold)
-{
-	be32_to_cpus(&smile_fee->cfg_reg_26);
-
-	smile_fee->cfg_reg_26 &= ~0xFFFFUL;
-	smile_fee->cfg_reg_26 |= 0xFFFFUL & ((uint32_t) threshold);
-
-	cpu_to_be32s(&smile_fee->cfg_reg_26);
-}
 
 
 /**
@@ -2631,6 +2891,35 @@ void smile_fee_set_hk_ccd2_vod_mon_f(uint16_t ccd2_vod_mon_f)
 
 
 /**
+ * @brief get SpW link id connected
+ * @note 0x1: link 1
+ *       0x2: link 2
+ */
+
+uint8_t smile_fee_get_spw_id(void)
+{
+	return (uint8_t) (be32_to_cpu(smile_fee->hk_reg_32) >> 24) & 0x3UL;
+}
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set SpW Time Code HK value
+ */
+
+void smile_fee_set_spw_id(uint8_t spw_id)
+{
+	be32_to_cpus(&smile_fee->hk_reg_32);
+
+	smile_fee->hk_reg_32 &= ~(0x3UL << 24);
+	smile_fee->hk_reg_32 |= (0x3UL & ((uint32_t) spw_id)) << 24;
+
+	cpu_to_be32s(&smile_fee->hk_reg_32);
+}
+#endif /* FEE_SIM */
+
+
+/**
  * @brief get SpW Time Code HK value
  */
 
@@ -2923,7 +3212,7 @@ void smile_fee_set_hk_frame_counter(uint16_t frame_counter)
 
 uint8_t smile_fee_get_hk_fpga_op_mode(void)
 {
-	return (uint8_t) (be32_to_cpu(smile_fee->hk_reg_33) >> 2) & 0xFUL;
+	return (uint8_t) be32_to_cpu(smile_fee->hk_reg_33) & 0x7FUL;
 }
 
 
@@ -2936,13 +3225,185 @@ void smile_fee_set_hk_fpga_op_mode(uint8_t fpga_op_mode)
 {
 	be32_to_cpus(&smile_fee->hk_reg_33);
 
-	smile_fee->hk_reg_33 &= ~(0xFUL << 2);
+	smile_fee->hk_reg_33 &= ~0x7FUL;
 
-	smile_fee->hk_reg_33 |= (fpga_op_mode & 0xF) << 2;
+	smile_fee->hk_reg_33 |= fpga_op_mode & 0xF;
 
 	cpu_to_be32s(&smile_fee->hk_reg_33);
 }
 #endif /* FEE_SIM */
+
+
+/**
+ * @brief get error flag DAC ON Bias readback error HK value
+ *
+ * @returns 1 if set, 0 otherwise
+ */
+
+uint32_t smile_fee_get_hk_error_flag_spw_dac_on_bias_readback(void)
+{
+	return be32_to_cpu(smile_fee->hk_reg_34) & 0x1UL;
+}
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set error flag DAC ON Bias readback error HK value
+ *
+ * @param error_flag_spw_dac_on_bias_readback either 0 or any bit set (== 1)
+ */
+
+void smile_fee_set_hk_error_flag_spw_dac_on_bias_readback(uint32_t error_flag_spw_dac_on_bias_readback)
+{
+	if (error_flag_spw_dac_on_bias_readback)
+		error_flag_spw_dac_on_bias_readback = 1;
+
+	be32_to_cpus(&smile_fee->hk_reg_34);
+
+	smile_fee->hk_reg_34 &= ~0x1UL;
+	smile_fee->hk_reg_34 |= error_flag_spw_dac_on_bias_readback;
+
+	cpu_to_be32s(&smile_fee->hk_reg_34);
+}
+#endif /* FEE_SIM */
+
+
+/**
+ * @brief get error flag SpW link disconnect error HK value
+ *
+ * @returns 1 if set, 0 otherwise
+ */
+
+uint32_t smile_fee_get_hk_error_flag_dac_off_bias_readback_error(void)
+{
+	return (be32_to_cpu(smile_fee->hk_reg_34) >> 1) & 0x1UL;
+}
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set error flag SpW link disconnect error HK value
+ *
+ * @param error_flag_dac_off_bias_readback_error either 0 or any bit set (== 1)
+ */
+
+void smile_fee_set_hk_error_flag_dac_off_bias_readback_error(uint32_t error_flag_dac_off_bias_readback_error)
+{
+	if (error_flag_dac_off_bias_readback_error)
+		error_flag_dac_off_bias_readback_error = 1;
+
+	be32_to_cpus(&smile_fee->hk_reg_34);
+
+	smile_fee->hk_reg_34 &= ~(0x1UL << 1);
+	smile_fee->hk_reg_34 |= error_flag_dac_off_bias_readback_error << 1;
+
+	cpu_to_be32s(&smile_fee->hk_reg_34);
+}
+#endif /* FEE_SIM */
+
+
+
+/**
+ * @brief get error flag SpW link disconnect error HK value
+ *
+ * @returns 1 if set, 0 otherwise
+ */
+
+uint32_t smile_fee_get_hk_error_flag_ext_sdram_edac_corr_err_error(void)
+{
+	return (be32_to_cpu(smile_fee->hk_reg_34) >> 5) & 0x1UL;
+}
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set error flag SpW link disconnect error HK value
+ *
+ * @param error_flag_ext_sdram_edac_corr_err_error either 0 or any bit set (== 1)
+ */
+
+void smile_fee_set_hk_error_flag_ext_sdram_edac_corr_err_error(uint32_t error_flag_ext_sdram_edac_corr_err_error)
+{
+	if (error_flag_ext_sdram_edac_corr_err_error)
+		error_flag_ext_sdram_edac_corr_err_error = 1;
+
+	be32_to_cpus(&smile_fee->hk_reg_34);
+
+	smile_fee->hk_reg_34 &= ~(0x1UL << 5);
+	smile_fee->hk_reg_34 |= error_flag_ext_sdram_edac_corr_err_error << 5;
+
+	cpu_to_be32s(&smile_fee->hk_reg_34);
+}
+#endif /* FEE_SIM */
+
+
+/**
+ * @brief get error flag SpW link disconnect error HK value
+ *
+ * @returns 1 if set, 0 otherwise
+ */
+
+uint32_t smile_fee_get_hk_error_flag_ext_sdram_edac_uncorr_err_error(void)
+{
+	return (be32_to_cpu(smile_fee->hk_reg_34) >> 6) & 0x1UL;
+}
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set error flag SpW link disconnect error HK value
+ *
+ * @param error_flag_ext_sdram_edac_uncorr_err_error either 0 or any bit set (== 1)
+ */
+
+void smile_fee_set_hk_error_flag_ext_sdram_edac_uncorr_err_error(uint32_t error_flag_ext_sdram_edac_uncorr_err_error)
+{
+	if (error_flag_ext_sdram_edac_uncorr_err_error)
+		error_flag_ext_sdram_edac_uncorr_err_error = 1;
+
+	be32_to_cpus(&smile_fee->hk_reg_34);
+
+	smile_fee->hk_reg_34 &= ~(0x1UL << 6);
+	smile_fee->hk_reg_34 |= error_flag_ext_sdram_edac_uncorr_err_error << 6;
+
+	cpu_to_be32s(&smile_fee->hk_reg_34);
+}
+#endif /* FEE_SIM */
+
+
+/**
+ * @brief get error flag SpW link disconnect error HK value
+ *
+ * @returns 1 if set, 0 otherwise
+ */
+
+uint32_t smile_fee_get_hk_error_flag_spw_link_disconnect_error(void)
+{
+	return (be32_to_cpu(smile_fee->hk_reg_34) >> 7) & 0x1UL;
+}
+
+
+#ifdef FEE_SIM
+/**
+ * @brief set error flag SpW link disconnect error HK value
+ *
+ * @param error_flag_spw_link_disconnect_error either 0 or any bit set (== 1)
+ */
+
+void smile_fee_set_hk_error_flag_spw_link_disconnect_error(uint32_t error_flag_spw_link_disconnect_error)
+{
+	if (error_flag_spw_link_disconnect_error)
+		error_flag_spw_link_disconnect_error = 1;
+
+	be32_to_cpus(&smile_fee->hk_reg_34);
+
+	smile_fee->hk_reg_34 &= ~(0x1UL << 7);
+	smile_fee->hk_reg_34 |= error_flag_spw_link_disconnect_error << 7;
+
+	cpu_to_be32s(&smile_fee->hk_reg_34);
+}
+#endif /* FEE_SIM */
+
 
 
 /**
@@ -2953,7 +3414,7 @@ void smile_fee_set_hk_fpga_op_mode(uint8_t fpga_op_mode)
 
 uint32_t smile_fee_get_hk_error_flag_spw_link_escape_error(void)
 {
-	return be32_to_cpu(smile_fee->hk_reg_34) & 0x1UL;
+	return (be32_to_cpu(smile_fee->hk_reg_34) >> 8) & 0x1UL;
 }
 
 
@@ -2971,12 +3432,13 @@ void smile_fee_set_hk_error_flag_spw_link_escape_error(uint32_t error_flag_spw_l
 
 	be32_to_cpus(&smile_fee->hk_reg_34);
 
-	smile_fee->hk_reg_34 &= ~0x1UL;
-	smile_fee->hk_reg_34 |= error_flag_spw_link_escape_error;
+	smile_fee->hk_reg_34 &= ~(0x1UL << 8);
+	smile_fee->hk_reg_34 |= error_flag_spw_link_escape_error << 8;
 
 	cpu_to_be32s(&smile_fee->hk_reg_34);
 }
 #endif /* FEE_SIM */
+
 
 
 /**
@@ -2987,7 +3449,7 @@ void smile_fee_set_hk_error_flag_spw_link_escape_error(uint32_t error_flag_spw_l
 
 uint32_t smile_fee_get_hk_error_flag_spw_link_credit_error(void)
 {
-	return (be32_to_cpu(smile_fee->hk_reg_34) >> 1) & 0x1UL;
+	return (be32_to_cpu(smile_fee->hk_reg_34) >> 9) & 0x1UL;
 }
 
 
@@ -3005,8 +3467,8 @@ void smile_fee_set_hk_error_flag_spw_link_credit_error(uint32_t error_flag_spw_l
 
 	be32_to_cpus(&smile_fee->hk_reg_34);
 
-	smile_fee->hk_reg_34 &= ~(0x1UL << 1);
-	smile_fee->hk_reg_34 |= error_flag_spw_link_credit_error << 1;
+	smile_fee->hk_reg_34 &= ~(0x1UL << 9);
+	smile_fee->hk_reg_34 |= error_flag_spw_link_credit_error << 9;
 
 	cpu_to_be32s(&smile_fee->hk_reg_34);
 }
@@ -3021,7 +3483,7 @@ void smile_fee_set_hk_error_flag_spw_link_credit_error(uint32_t error_flag_spw_l
 
 uint32_t smile_fee_get_hk_error_flag_spw_link_parity_error(void)
 {
-	return (be32_to_cpu(smile_fee->hk_reg_34) >> 2) & 0x1UL;
+	return (be32_to_cpu(smile_fee->hk_reg_34) >> 10) & 0x1UL;
 }
 
 
@@ -3039,8 +3501,8 @@ void smile_fee_set_hk_error_flag_spw_link_parity_error(uint32_t error_flag_spw_l
 
 	be32_to_cpus(&smile_fee->hk_reg_34);
 
-	smile_fee->hk_reg_34 &= ~(0x1UL << 2);
-	smile_fee->hk_reg_34 |= error_flag_spw_link_parity_error << 2;
+	smile_fee->hk_reg_34 &= ~(0x1UL << 10);
+	smile_fee->hk_reg_34 |= error_flag_spw_link_parity_error << 10;
 
 	cpu_to_be32s(&smile_fee->hk_reg_34);
 }
@@ -3119,7 +3581,7 @@ void smile_fee_set_hk_fpga_major_version(uint8_t major)
 
 uint16_t smile_fee_get_hk_board_id(void)
 {
-	return (uint16_t) ((be32_to_cpu(smile_fee->hk_reg_35) >> 12) & 0x1FFUL);
+	return (uint16_t) ((be32_to_cpu(smile_fee->hk_reg_35) >> 12) & 0x1FUL);
 }
 
 
@@ -3135,8 +3597,8 @@ void smile_fee_set_hk_board_id(uint16_t id)
 {
 	be32_to_cpus(&smile_fee->hk_reg_35);
 
-	smile_fee->hk_reg_35 &= ~(0x1FFUL << 12);
-	smile_fee->hk_reg_35 |=  (0x1FFUL & ((uint32_t) id)) << 12;
+	smile_fee->hk_reg_35 &= ~(0x1FUL << 12);
+	smile_fee->hk_reg_35 |=  (0x1FUL & ((uint32_t) id)) << 12;
 
 	cpu_to_be32s(&smile_fee->hk_reg_35);
 }
@@ -3144,12 +3606,41 @@ void smile_fee_set_hk_board_id(uint16_t id)
 
 
 /**
- * @brief get ccd2_e_pix_Full_Sun HK value
- *
- * @note Count of CCD2 E binned pixels above threshold
+ * @brief get the CMIC correction counter
  */
 
-uint16_t smile_fee_get_hk_ccd2_e_pix_full_sun(void)
+uint16_t smile_fee_get_cmic_corr(void)
+{
+	return (uint16_t) ((be32_to_cpu(smile_fee->hk_reg_35) >> 17) & 0xFFFUL);
+}
+
+
+#ifdef FEE_SIM
+
+/**
+ * @brief set the CMIC correction counter
+ */
+
+void smile_fee_set_cmic_corr(uint16_t corr)
+{
+	be32_to_cpus(&smile_fee->hk_reg_35);
+
+	smile_fee->hk_reg_35 &= ~(0xFFFUL << 17);
+	smile_fee->hk_reg_35 |=  (0xFFFUL & ((uint32_t) corr)) << 17;
+
+	cpu_to_be32s(&smile_fee->hk_reg_35);
+}
+#endif /* FEE_SIM */
+
+
+
+/**
+ * @brief get ccd2_f_pix_Full_Sun HK value
+ *
+ * @note Count of CCD2 F binned pixels above threshold
+ */
+
+uint16_t smile_fee_get_hk_ccd2_f_pix_full_sun(void)
 {
 	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_36) >> 16) & 0xFFFFUL;
 }
@@ -3157,10 +3648,10 @@ uint16_t smile_fee_get_hk_ccd2_e_pix_full_sun(void)
 
 #ifdef FEE_SIM
 /**
- * @brief set ccd2_e_pix_Full_Sun HK value
+ * @brief set ccd2_f_pix_Full_Sun HK value
  */
 
-void smile_fee_set_hk_ccd2_e_pix_full_sun(uint16_t ccd2_e_pix_full_sun)
+void smile_fee_set_hk_ccd2_f_pix_full_sun(uint16_t ccd2_e_pix_full_sun)
 {
 	be32_to_cpus(&smile_fee->hk_reg_36);
 
@@ -3173,12 +3664,12 @@ void smile_fee_set_hk_ccd2_e_pix_full_sun(uint16_t ccd2_e_pix_full_sun)
 
 
 /**
- * @brief get ccd2_f_pix_Full_Sun HK value
+ * @brief get ccd2_e_pix_Full_Sun HK value
  *
- * @note Count of CCD2 F binned pixels above threshold
+ * @note Count of CCD2 E binned pixels above threshold
  */
 
-uint16_t smile_fee_get_hk_ccd2_f_pix_full_sun(void)
+uint16_t smile_fee_get_hk_ccd2_e_pix_full_sun(void)
 {
 	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_36) & 0xFFFFUL;
 }
@@ -3186,10 +3677,10 @@ uint16_t smile_fee_get_hk_ccd2_f_pix_full_sun(void)
 
 #ifdef FEE_SIM
 /**
- * @brief set ccd2_f_pix_Full_Sun HK value
+ * @brief set ccd2_e_pix_Full_Sun HK value
  */
 
-void smile_fee_set_hk_ccd2_f_pix_full_sun(uint16_t ccd2_f_pix_full_sun)
+void smile_fee_set_hk_ccd2_e_pix_full_sun(uint16_t ccd2_f_pix_full_sun)
 {
 	be32_to_cpus(&smile_fee->hk_reg_36);
 
@@ -3202,12 +3693,12 @@ void smile_fee_set_hk_ccd2_f_pix_full_sun(uint16_t ccd2_f_pix_full_sun)
 
 
 /**
- * @brief get ccd4_e_pix_Full_Sun HK value
+ * @brief get ccd4_f_pix_Full_Sun HK value
  *
- * @note Count of CCD4 E binned pixels above threshold
+ * @note Count of CCD4 F binned pixels above threshold
  */
 
-uint16_t smile_fee_get_hk_ccd4_e_pix_full_sun(void)
+uint16_t smile_fee_get_hk_ccd4_f_pix_full_sun(void)
 {
 	return (uint16_t) (be32_to_cpu(smile_fee->hk_reg_37) >> 16) & 0xFFFFUL;
 }
@@ -3215,10 +3706,10 @@ uint16_t smile_fee_get_hk_ccd4_e_pix_full_sun(void)
 
 #ifdef FEE_SIM
 /**
- * @brief set ccd4_e_pix_Full_Sun HK value
+ * @brief set ccd4_f_pix_Full_Sun HK value
  */
 
-void smile_fee_set_hk_ccd4_e_pix_full_sun(uint16_t ccd4_e_pix_full_sun)
+void smile_fee_set_hk_ccd4_f_pix_full_sun(uint16_t ccd4_e_pix_full_sun)
 {
 	be32_to_cpus(&smile_fee->hk_reg_37);
 
@@ -3231,12 +3722,12 @@ void smile_fee_set_hk_ccd4_e_pix_full_sun(uint16_t ccd4_e_pix_full_sun)
 
 
 /**
- * @brief get ccd4_f_pix_Full_Sun HK value
+ * @brief get ccd4_e_pix_Full_Sun HK value
  *
- * @note Count of CCD4 F binned pixels above threshold
+ * @note Count of CCD4 E binned pixels above threshold
  */
 
-uint16_t smile_fee_get_hk_ccd4_f_pix_full_sun(void)
+uint16_t smile_fee_get_hk_ccd4_e_pix_full_sun(void)
 {
 	return (uint16_t) be32_to_cpu(smile_fee->hk_reg_37) & 0xFFFFUL;
 }
@@ -3244,10 +3735,10 @@ uint16_t smile_fee_get_hk_ccd4_f_pix_full_sun(void)
 
 #ifdef FEE_SIM
 /**
- * @brief set ccd4_f_pix_Full_Sun HK value
+ * @brief set ccd4_e_pix_Full_Sun HK value
  */
 
-void smile_fee_set_hk_ccd4_f_pix_full_sun(uint16_t ccd4_f_pix_full_sun)
+void smile_fee_set_hk_ccd4_e_pix_full_sun(uint16_t ccd4_f_pix_full_sun)
 {
 	be32_to_cpus(&smile_fee->hk_reg_37);
 
@@ -3381,6 +3872,91 @@ int smile_fee_sync_cfg_reg_5(enum sync_direction dir)
 	if (dir == DPU2FEE)
 		return smile_fee_sync(fee_write_cmd_cfg_reg_5,
 				      &smile_fee->cfg_reg_5, 4);
+
+	return -1;
+}
+
+
+/**
+ * @brief sync configuration register 6
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+int smile_fee_sync_cfg_reg_6(enum sync_direction dir)
+{
+	if (dir == FEE2DPU)
+		return smile_fee_sync(fee_read_cmd_cfg_reg_6,
+				      &smile_fee->cfg_reg_6, 0);
+
+	if (dir == DPU2FEE)
+		return smile_fee_sync(fee_write_cmd_cfg_reg_6,
+				      &smile_fee->cfg_reg_6, 4);
+
+	return -1;
+}
+
+
+/**
+ * @brief sync configuration register 7
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+int smile_fee_sync_cfg_reg_7(enum sync_direction dir)
+{
+	if (dir == FEE2DPU)
+		return smile_fee_sync(fee_read_cmd_cfg_reg_7,
+				      &smile_fee->cfg_reg_7, 0);
+
+	if (dir == DPU2FEE)
+		return smile_fee_sync(fee_write_cmd_cfg_reg_7,
+				      &smile_fee->cfg_reg_7, 4);
+
+	return -1;
+}
+
+
+/**
+ * @brief sync configuration register 8
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+int smile_fee_sync_cfg_reg_8(enum sync_direction dir)
+{
+	if (dir == FEE2DPU)
+		return smile_fee_sync(fee_read_cmd_cfg_reg_8,
+				      &smile_fee->cfg_reg_8, 0);
+
+	if (dir == DPU2FEE)
+		return smile_fee_sync(fee_write_cmd_cfg_reg_8,
+				      &smile_fee->cfg_reg_8, 4);
+
+	return -1;
+}
+
+
+/**
+ * @brief sync configuration register 9
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_cfg_reg_9(enum sync_direction dir)
+{
+	if (dir == FEE2DPU)
+		return smile_fee_sync(fee_read_cmd_cfg_reg_9,
+				      &smile_fee->cfg_reg_9, 0);
+
+	if (dir == DPU2FEE)
+		return smile_fee_sync(fee_write_cmd_cfg_reg_9,
+				      &smile_fee->cfg_reg_9, 4);
 
 	return -1;
 }
@@ -3639,27 +4215,6 @@ int smile_fee_sync_cfg_reg_25(enum sync_direction dir)
 
 
 /**
- * @brief sync configuration register 26
- *
- * @param dir the syncronisation direction
- *
- * @returns 0 on success, otherwise error
- */
-int smile_fee_sync_cfg_reg_26(enum sync_direction dir)
-{
-	if (dir == FEE2DPU)
-		return smile_fee_sync(fee_read_cmd_cfg_reg_26,
-				      &smile_fee->cfg_reg_26, 0);
-
-	if (dir == DPU2FEE)
-		return smile_fee_sync(fee_write_cmd_cfg_reg_26,
-				      &smile_fee->cfg_reg_26, 4);
-
-	return -1;
-}
-
-
-/**
  * @brief sync register containing vstart
  *
  * @param dir the syncronisation direction
@@ -3853,19 +4408,33 @@ int smile_fee_sync_packet_size(enum sync_direction dir)
 
 
 /**
- * @brief sync the integration period
+ * @brief sync cdsclp_hi
  *
  * @param dir the syncronisation direction
  *
  * @returns 0 on success, otherwise error
  */
 
-int smile_fee_sync_int_period(enum sync_direction dir)
+int smile_fee_sync_cdsclp_hi(enum sync_direction dir)
 {
 	return smile_fee_sync_cfg_reg_4(dir);
 }
 
-#if 0
+
+/**
+ * @brief sync adc_pwrdn_en
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_adc_pwrdn_en(enum sync_direction dir)
+{
+	return smile_fee_sync_cfg_reg_4(dir);
+}
+
+
 /**
  * @brief sync the dwell timer for trap pumping
  *
@@ -3874,11 +4443,11 @@ int smile_fee_sync_int_period(enum sync_direction dir)
  * @returns 0 on success, otherwise error
  */
 
-int smile_fee_sync_trap_pumping_dwell_counter(enum sync_direction dir)
+int smile_fee_sync_trap_pumping_dwell_term(enum sync_direction dir)
 {
 	return smile_fee_sync_cfg_reg_5(dir);
 }
-#endif /* 0 */
+
 
 /**
  * @brief sync internal mode sync
@@ -3889,6 +4458,34 @@ int smile_fee_sync_trap_pumping_dwell_counter(enum sync_direction dir)
  */
 
 int smile_fee_sync_sync_sel(enum sync_direction dir)
+{
+	return smile_fee_sync_cfg_reg_5(dir);
+}
+
+
+/**
+ * @brief sync pwr sync select
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_sel_pwr_sync(enum sync_direction dir)
+{
+	return smile_fee_sync_cfg_reg_5(dir);
+}
+
+
+/**
+ * @brief sync use pwr sync
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_use_pwr_sync(enum sync_direction dir)
 {
 	return smile_fee_sync_cfg_reg_5(dir);
 }
@@ -3949,21 +4546,6 @@ int smile_fee_sync_dg_en(enum sync_direction dir)
 	return smile_fee_sync_cfg_reg_5(dir);
 }
 
-#if 0
-/**
- * @brief sync trap pumping shuffle counter
- *
- * @param dir the syncronisation direction
- *
- * @returns 0 on success, otherwise error
- */
-
-int smile_fee_sync_trap_pumping_shuffle_counter(enum sync_direction dir)
-{
-	return smile_fee_sync_cfg_reg_6(dir);
-}
-#endif /* 0 */
-
 /**
  * @brief sync clear full sun counters
  *
@@ -3972,7 +4554,7 @@ int smile_fee_sync_trap_pumping_shuffle_counter(enum sync_direction dir)
  * @returns 0 on success, otherwise error
  */
 
-int smile_fee_sync_clear_full_sun_counters(enum sync_direction dir)
+int smile_fee_sync_correction_type(enum sync_direction dir)
 {
 	return smile_fee_sync_cfg_reg_5(dir);
 }
@@ -3989,6 +4571,104 @@ int smile_fee_sync_clear_full_sun_counters(enum sync_direction dir)
 int smile_fee_sync_edu_wandering_mask_en(enum sync_direction dir)
 {
 	return smile_fee_sync_cfg_reg_5(dir);
+}
+
+
+/**
+ * @brief sync full sun pix threshold
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_full_sun_pix_threshold(enum sync_direction dir)
+{
+	return smile_fee_sync_cfg_reg_6(dir);
+}
+
+
+/**
+ * @brief sync pix offset
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_pix_offset(enum sync_direction dir)
+{
+	return smile_fee_sync_cfg_reg_6(dir);
+}
+
+
+/**
+ * @brief sync readout pause counter
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_readout_pause_counter(enum sync_direction dir)
+{
+	return smile_fee_sync_cfg_reg_7(dir);
+}
+
+
+/**
+ * @brief sync trap pumping shuffle counter
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_trap_pumping_shuffle_counter(enum sync_direction dir)
+{
+	return smile_fee_sync_cfg_reg_7(dir);
+}
+
+
+/**
+ * @brief sync the integration period
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_int_sync_period(enum sync_direction dir)
+{
+	return smile_fee_sync_cfg_reg_8(dir);
+}
+
+
+/**
+ * @brief sync cdsclp_lo
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_cdsclp_lo(enum sync_direction dir)
+{
+	return smile_fee_sync_cfg_reg_8(dir);
+}
+
+
+/**
+ * @brief sync rowclp_hi
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_rowclp_hi(enum sync_direction dir)
+{
+	return smile_fee_sync_cfg_reg_9(dir);
 }
 
 
@@ -4093,6 +4773,20 @@ int smile_fee_sync_ccd4_vgd_config(enum sync_direction dir)
 int smile_fee_sync_ccd_vog_config(enum sync_direction dir)
 {
 	return smile_fee_sync_cfg_reg_20(dir);
+}
+
+
+/**
+ * @brief sync rowclp_lo
+ *
+ * @param dir the syncronisation direction
+ *
+ * @returns 0 on success, otherwise error
+ */
+
+int smile_fee_sync_rowclp_lo(enum sync_direction dir)
+{
+	return smile_fee_sync_cfg_reg_21(dir);
 }
 
 
@@ -4221,21 +4915,6 @@ int smile_fee_sync_ccd4_f_pix_threshold(enum sync_direction dir)
 	return smile_fee_sync_cfg_reg_23(dir);
 }
 
-
-/**
- * @brief sync pix offset
- *
- * @param dir the syncronisation direction
- *
- * @returns 0 on success, otherwise error
- */
-
-int smile_fee_sync_pix_offset(enum sync_direction dir)
-{
-	return smile_fee_sync_cfg_reg_24(dir);
-}
-
-
 /**
  * @brief sync event pkt limit
  *
@@ -4264,18 +4943,6 @@ int smile_fee_sync_execute_op(enum sync_direction dir)
 }
 
 
-/**
- * @brief sync full sun pix threshold
- *
- * @param dir the syncronisation direction
- *
- * @returns 0 on success, otherwise error
- */
-
-int smile_fee_sync_full_sun_pix_threshold(enum sync_direction dir)
-{
-	return smile_fee_sync_cfg_reg_26(dir);
-}
 
 
 /**
@@ -4569,6 +5236,8 @@ int smile_fee_write_sram_32(uint32_t *buf, uint32_t addr, size_t nmemb)
  * @param mtu the maximum transport unit per RMAP packet; choose wisely
  *
  * @returns 0 on success, otherwise error
+ *
+ * XXX this currently does NOT have an abort mechanism
  */
 
 int smile_fee_sync_mirror_to_sram(uint32_t addr, uint32_t size, uint32_t mtu)
@@ -4641,6 +5310,8 @@ int smile_fee_sync_mirror_to_sram(uint32_t addr, uint32_t size, uint32_t mtu)
  * @param mtu the maximum transport unit per RMAP packet; choose wisely
  *
  * @returns 0 on success, otherwise error
+ *
+ * XXX this currently does NOT have an abort mechanism
  */
 
 int smile_fee_sync_sram_to_mirror(uint32_t addr, uint32_t size, uint32_t mtu)
@@ -4727,13 +5398,13 @@ void smile_fee_ctrl_init(struct smile_fee_mirror *fee_mirror)
 		smile_fee = fee_mirror;
 
 	if (!smile_fee) {
-		printf("Error allocating memory for the SMILE_FEE mirror\n");
+		DBG("Error allocating memory for the SMILE_FEE mirror\n");
 		return;
 	}
 
 	smile_fee->sram = (uint8_t *) malloc(FEE_SRAM_SIZE);
 	if (!smile_fee->sram) {
-		printf("Error allocating memory for the SMILE_FEE SRAM mirror\n");
+		DBG("Error allocating memory for the SMILE_FEE SRAM mirror\n");
 		return;
 	}
 

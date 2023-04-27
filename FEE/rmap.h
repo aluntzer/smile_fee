@@ -193,7 +193,7 @@ struct rmap_pkt {
 uint8_t rmap_crc8(const uint8_t *buf, const size_t len);
 
 struct rmap_pkt *rmap_create_packet(void);
-struct rmap_pkt *rmap_pkt_from_buffer(uint8_t *buf);
+struct rmap_pkt *rmap_pkt_from_buffer(uint8_t *buf, uint32_t len);
 int rmap_build_hdr(struct rmap_pkt *pkt, uint8_t *hdr);
 int rmap_set_data_len(struct rmap_pkt *pkt, uint32_t len);
 void rmap_set_data_addr(struct rmap_pkt *pkt, uint32_t addr);
@@ -213,6 +213,9 @@ void rmap_erase_packet(struct rmap_pkt *pkt);
 
 
 void rmap_parse_pkt(uint8_t *pkt);
+
+size_t rmap_get_non_rmap_pckt_cnt_err(void);
+void rmap_clear_non_rmap_pckt_cnt_err(void);
 
 
 #endif /* RMAP_H */

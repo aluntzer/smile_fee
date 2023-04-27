@@ -46,7 +46,6 @@
 
 
 
-
 /* whatever for now ... */
 #define MAX_PAYLOAD_SIZE	4096
 
@@ -68,7 +67,7 @@ static struct smile_fee_mirror smile_fee_mem;
 
 
 
-static void rmap_sim_rx(uint8_t *pkt, struct sim_net_cfg *cfg);
+static void rmap_sim_rx(uint8_t *pkt, size_t len, struct sim_net_cfg *cfg);
 
 /**
  * @brief a sigint handler, should we ever need it
@@ -337,7 +336,10 @@ static int sim_rx(int fd, struct sim_net_cfg *cfg)
 
 
 
-	rmap_sim_rx((uint8_t *) gresb_get_spw_data(recv_buffer), cfg);
+	if (cfg->raw)
+		rmap_sim_rx((uint8_t *) recv_buffer, recv_bytes, cfg);
+	else
+		rmap_sim_rx((uint8_t *) gresb_get_spw_data(recv_buffer), recv_bytes, cfg);
 
 cleanup:
 	free(recv_buffer);
@@ -480,7 +482,7 @@ int fee_sim_package(uint8_t *blob,
 }
 
 /* simulate FEE receiving data */
-static void rmap_sim_rx(uint8_t *pkt, struct sim_net_cfg *cfg)
+static void rmap_sim_rx(uint8_t *pkt, size_t len, struct sim_net_cfg *cfg)
 {
 	int n;
 
@@ -501,7 +503,7 @@ static void rmap_sim_rx(uint8_t *pkt, struct sim_net_cfg *cfg)
 	uint8_t *mem;
 
 
-	rp = rmap_pkt_from_buffer(pkt);
+	rp = rmap_pkt_from_buffer(pkt, len);
 
 	if (!rp) {
 		printf("conversion error!");

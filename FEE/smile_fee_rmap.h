@@ -22,8 +22,8 @@
 
 
 
-int smile_fee_submit_tx(const uint8_t *cmd,  int cmd_size,
-			const uint8_t *data, int data_size);
+int smile_fee_submit_tx(uint8_t *cmd,  int cmd_size,
+			uint8_t *data, int data_size);
 
 
 int smile_fee_gen_cmd(uint16_t trans_id, uint8_t *cmd,
@@ -38,9 +38,9 @@ int smile_fee_sync_data(int (*fn)(uint16_t trans_id, uint8_t *cmd,
 			uint32_t addr, void *data, uint32_t data_len, int read);
 
 int smile_fee_package(uint8_t *blob,
-		      const uint8_t *cmd,  int cmd_size,
-		      const uint8_t non_crc_bytes,
-		      const uint8_t *data, int data_size);
+		      uint8_t *cmd,  int cmd_size,
+		      uint8_t non_crc_bytes,
+		      uint8_t *data, int data_size);
 
 void smile_fee_set_destination_logical_address(uint8_t addr);
 
@@ -56,9 +56,9 @@ int smile_fee_rmap_sync_status(void);
 void smile_fee_rmap_reset_log(void);
 
 int smile_fee_rmap_init(int mtu,
-			int32_t (*tx)(const void *hdr,  uint32_t hdr_size,
-				      const uint8_t non_crc_bytes,
-				      const void *data, uint32_t data_size),
+			int32_t (*tx)(void *hdr,  uint32_t hdr_size,
+				      uint8_t non_crc_bytes,
+				      void *data, uint32_t data_size),
 			uint32_t (*rx)(uint8_t *pkt));
 
 

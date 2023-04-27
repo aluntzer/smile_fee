@@ -3,7 +3,7 @@ SOURCEDIR	 = ./
 INCLUDES         = -I../FEE -I./ -I../GRESB
 BUILDDIR         = ./
 PATH            +=
-CFLAGS          += -O2 -W -Wall -Wextra #-Wno-unused #-Werror -pedantic
+CFLAGS          += -m32 -O2 -W -Wall -Wextra #-Wno-unused #-Werror -pedantic
 CPPFLAGS        := $(INCLUDES) -DFEE_SIM
 
 ifdef SIM_DUMP_FITS

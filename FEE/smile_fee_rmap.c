@@ -43,7 +43,7 @@
  */
 
 
-#include <stdio.h>
+#include <debug.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -69,9 +69,9 @@ static uint8_t dst_key;	/* destination command key */
 
 
 /* generic calls, functions must be provided to init() */
-static int32_t (*rmap_tx)(const void *hdr,  uint32_t hdr_size,
-			  const uint8_t non_crc_bytes,
-			  const void *data, uint32_t data_size);
+static int32_t (*rmap_tx)(void *hdr,  uint32_t hdr_size,
+			  uint8_t non_crc_bytes,
+			  void *data, uint32_t data_size);
 static uint32_t (*rmap_rx)(uint8_t *pkt);
 
 static int data_mtu;	/* maximum data transfer size per unit */
@@ -225,17 +225,21 @@ static int smile_fee_process_rx(void)
 
 	/* process all pending responses */
 	while ((n = rmap_rx(NULL))) {
+
+		if (!trans_log.pending)
+			goto exit;
+
 		/* we received something, allocate enough space for the packet */
 		spw_pckt = (uint8_t *) malloc(n);
 		if(!spw_pckt) {
-			printf("malloc() for packet failed!\n");
+			DBG("malloc() for packet failed!\n");
 			return -1;
 		}
 
 		/* read the packet */
 		n = rmap_rx(spw_pckt);
 		if (!n) {
-			printf("Unknown error in rmap_rx()\n");
+			DBG("Unknown error in rmap_rx()\n");
 			free(spw_pckt);
 			return -1;
 		}
@@ -246,18 +250,18 @@ static int smile_fee_process_rx(void)
 			rmap_parse_pkt(spw_pckt);
 
 		/* convert format */
-		rp = rmap_pkt_from_buffer(spw_pckt);
+		rp = rmap_pkt_from_buffer(spw_pckt, n);
 		free(spw_pckt);
 
 		if (!rp) {
-			printf("Error converting to RMAP packet\n");
+			DBG("Error converting to RMAP packet\n");
 			continue;
 		}
 
 		local_addr = trans_log_get_addr(rp->tr_id);
 
 		if (!local_addr) {
-			printf("warning: response packet received not in"
+			DBG("warning: response packet received not in"
 			       "transaction log\n");
 			rmap_erase_packet(rp);
 			continue;
@@ -273,6 +277,7 @@ static int smile_fee_process_rx(void)
 		rmap_erase_packet(rp);
 	}
 
+exit:
 	return cnt;
 }
 
@@ -288,8 +293,8 @@ static int smile_fee_process_rx(void)
  * @returns 0 on success, otherwise error
  */
 
-int smile_fee_submit_tx(const uint8_t *cmd,  int cmd_size,
-			const uint8_t *data, int data_size)
+int smile_fee_submit_tx(uint8_t *cmd,  int cmd_size,
+			uint8_t *data, int data_size)
 {
 	/* try to process pending responses */
 	smile_fee_process_rx();
@@ -298,10 +303,10 @@ int smile_fee_submit_tx(const uint8_t *cmd,  int cmd_size,
 		return -1;
 
 	if (0)
-		printf("Transmitting RMAP command\n");
+		DBG("Transmitting RMAP command\n");
 
 	if (rmap_tx(cmd, cmd_size, dpath_len, data, data_size)) {
-		printf("rmap_tx() returned error!");
+		DBG("rmap_tx() returned error!");
 		return -1;
 	}
 
@@ -335,7 +340,7 @@ int smile_fee_gen_cmd(uint16_t trans_id, uint8_t *cmd,
 
 	pkt = rmap_create_packet();
 	if (!pkt) {
-		printf("Error creating packet\n");
+		DBG("Error creating packet\n");
 		return 0;
 	}
 
@@ -405,14 +410,14 @@ int smile_fee_sync(int (*fn)(uint16_t trans_id, uint8_t *cmd),
 
 	rmap_cmd = (uint8_t *) malloc(n);
 	if (!rmap_cmd) {
-		printf("Error allocating rmap cmd");
+		DBG("Error allocating rmap cmd");
 		return -1;
 	}
 
 	/* now fill actual command */
 	n = fn(slot, rmap_cmd);
 	if (!n) {
-		printf("Error creating command packet\n");
+		DBG("Error creating command packet\n");
 		free(rmap_cmd);
 		return -1;
 	}
@@ -459,7 +464,7 @@ int smile_fee_sync_data(int (*fn)(uint16_t trans_id, uint8_t *cmd,
 	slot = trans_log_grab_slot(data);
 	if (slot < 0) {
 		if (0)
-			printf("Error: all slots busy!\n");
+			DBG("Error: all slots busy!\n");
 		return 1;
 	}
 
@@ -469,14 +474,14 @@ int smile_fee_sync_data(int (*fn)(uint16_t trans_id, uint8_t *cmd,
 
 	rmap_cmd = (uint8_t *) malloc(n);
 	if (!rmap_cmd) {
-		printf("Error allocating rmap cmd");
+		DBG("Error allocating rmap cmd");
 		return -1;
 	}
 
 	/* now fill actual command */
 	n = fn(slot, rmap_cmd, addr, data_len);
 	if (!n) {
-		printf("Error creating command packet\n");
+		DBG("Error creating command packet\n");
 		free(rmap_cmd);
 		return -1;
 	}
@@ -512,9 +517,9 @@ int smile_fee_sync_data(int (*fn)(uint16_t trans_id, uint8_t *cmd,
  */
 
 int smile_fee_package(uint8_t *blob,
-		      const uint8_t *cmd,  int cmd_size,
-		      const uint8_t non_crc_bytes,
-		      const uint8_t *data, int data_size)
+		      uint8_t *cmd,  int cmd_size,
+		      uint8_t non_crc_bytes,
+		      uint8_t *data, int data_size)
 {
 	int n;
 	int has_data_crc = 0;
@@ -732,9 +737,9 @@ void smile_fee_rmap_reset_log(void)
  */
 
 int smile_fee_rmap_init(int mtu,
-			int32_t (*tx)(const void *hdr,  uint32_t hdr_size,
-				      const uint8_t non_crc_bytes,
-				      const void *data, uint32_t data_size),
+			int32_t (*tx)(void *hdr,  uint32_t hdr_size,
+				      uint8_t non_crc_bytes,
+				      void *data, uint32_t data_size),
 			uint32_t (*rx)(uint8_t *pkt))
 {
 	if (!tx)

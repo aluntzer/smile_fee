@@ -55,7 +55,7 @@
 #endif
 #endif
 
-#if (__i386__ || __x86_64__)
+#if (__i386__ || __x86_64__ || __aarch64__ || __arm__)
 #ifndef __LITTLE_ENDIAN
 #define __LITTLE_ENDIAN 1234
 #endif

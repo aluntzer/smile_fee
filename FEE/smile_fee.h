@@ -55,6 +55,7 @@
 #define FEE_MODE_ID_STBY	0x2	/* stand-by-mode */
 #define FEE_MODE_ID_FT		0x3	/* frame transfer */
 #define FEE_MODE_ID_FF		0x4	/* full frame */
+#define FEE_CMD__ID_SOFT_RST	0x7	/* soft reset, (not specified, but likely a command?) */
 #define FEE_CMD__ID_IMM_ON	0x8	/* immediate on-mode, this is a command, not a mode */
 #define FEE_MODE_ID_FFSIM	0x9	/* full frame simulation simulation */
 #define FEE_MODE_ID_EVSIM	0xA	/* event detection simulation */
@@ -91,6 +92,7 @@
 
 
 /* @see MSSL-SMILE-SXI-IRD-0001 Draft A.14, req. MSSL-IF-108 */
+__extension__
 struct fee_pkt_type {
 #if (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
 	uint16_t reserved0:4;
@@ -332,6 +334,22 @@ struct fee_ft_data {
 };
 
 
+/**
+ * The FF mode frame container structure
+ */
+
+struct fee_ff_data {
+
+	struct fee_hk_data_payload hk;
+	uint16_t ccd_id;
+
+	uint16_t *data;
+	size_t n_elem;	/* allocated number of elements (i.e. bufsize) */
+
+	size_t n;	/* actual number of elements */
+};
+
+
 
 
 
@@ -346,12 +364,16 @@ void fee_pkt_wandering_mask_to_cpu(struct fee_data_pkt *pkt);
 
 int fee_event_is_xray(struct fee_data_pkt *pkt,
 		      uint16_t centre_th, uint32_t sum_th, uint16_t ring_th);
+int fee_event_pixel_is_bad(struct fee_data_pkt *pkt);
 
 void fee_ft_aggregator_destroy(struct fee_ft_data *ft);
 struct fee_ft_data *fee_ft_aggregator_create(void);
 int fee_ft_aggregate(struct fee_ft_data *ft, struct fee_data_pkt *pkt);
 
 
+void fee_ff_aggregator_destroy(struct fee_ff_data *ff);
+struct fee_ff_data *fee_ff_aggregator_create(void);
+int fee_ff_aggregate(struct fee_ff_data *ff, struct fee_data_pkt *pkt);
 
 
 

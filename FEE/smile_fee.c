@@ -21,7 +21,7 @@
 
 
 
-#include <stdio.h>
+#include <debug.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -30,6 +30,31 @@
 
 #include <byteorder.h>
 
+
+#ifndef __WORDSIZE
+#define __WORDSIZE (__SIZEOF_LONG__ * 8)
+#endif
+
+#ifndef BITS_PER_LONG
+#define BITS_PER_LONG __WORDSIZE
+#endif
+
+#define BIT_WORD(nr)            ((nr) / BITS_PER_LONG)
+
+
+static uint32_t *fee_ccd2_bad_pixels;
+static uint32_t *fee_ccd4_bad_pixels;
+
+
+/**
+ * test_bit - Determine whether a bit is set
+ * @nr: bit number to test
+ * @addr: Address to start counting from
+ */
+static inline int test_bit(int nr, const volatile uint32_t *addr)
+{
+        return 1UL & (addr[BIT_WORD(nr)] >> (nr & (BITS_PER_LONG-1)));
+}
 
 
 static void fee_pkt_event_to_cpu_internal(struct fee_data_pkt *pkt)
@@ -60,16 +85,16 @@ static void fee_pkt_show_event_internal(struct fee_data_pkt *pkt)
 
 
 	if (pkt->hdr.type.ccd_id == FEE_CCD_ID_2)
-		printf("CDD 2 ");
+		DBG("CDD 2 ");
 	else if (pkt->hdr.type.ccd_id == FEE_CCD_ID_4)
-		printf("CDD 4 ");
+		DBG("CDD 4 ");
 
 	if (pkt->hdr.type.ccd_side == FEE_CCD_SIDE_E)
-		printf("Side E ");
+		DBG("Side E ");
 	else if (pkt->hdr.type.ccd_side == FEE_CCD_SIDE_F)
-		printf("Side F ");
+		DBG("Side F ");
 
-	printf("at row %d col %d, value %d\n", ev->row, ev->col, ev->pix[FEE_EV_PIXEL_IDX]);
+	DBG("at row %d col %d, value %d\n", ev->row, ev->col, ev->pix[FEE_EV_PIXEL_IDX]);
 }
 
 
@@ -128,7 +153,7 @@ void fee_pkt_show_event(struct fee_data_pkt *pkt)
 	if (!fee_pkt_is_event(pkt))
 		return;
 
-	printf("Event in ");
+	DBG("Event in ");
 	fee_pkt_show_event_internal(pkt);
 }
 
@@ -145,7 +170,7 @@ void fee_pkt_show_wandering_mask(struct fee_data_pkt *pkt)
 	if (!fee_pkt_is_wandering_mask(pkt))
 		return;
 
-	printf("Wandering mask of ");
+	DBG("Wandering mask of ");
 	fee_pkt_show_event_internal(pkt);
 }
 
@@ -175,6 +200,54 @@ void fee_pkt_wandering_mask_to_cpu(struct fee_data_pkt *pkt)
 		return;
 
 	fee_pkt_event_to_cpu_internal(pkt);
+}
+
+
+
+
+
+/**
+ * @brief check pixel mask for pixels marked invalid
+ * #
+ * @returns 1 if the event is marked as bad or is non-existant; 0 otherwise
+ *
+ * @note this is for use with event packets
+ *
+ * @note there are some extra sanity checks which can be disabled in flight
+ * of we need to squeeze out a few more cycles...
+ *
+ */
+
+int fee_event_pixel_is_bad(struct fee_data_pkt *pkt)
+{
+	size_t idx;
+
+	uint32_t *tbl;
+
+	struct fee_event_detection *ev;
+
+
+	if (!fee_pkt_is_event(pkt))
+		return 1;
+
+
+	ev = (struct fee_event_detection *) pkt;
+
+	idx = ev->row * FEE_EDU_FRAME_6x6_COLS + ev->col;
+
+	if (idx > FEE_EDU_FRAME_6x6_COLS * FEE_EDU_FRAME_6x6_ROWS)
+		return 1;
+
+	if (pkt->hdr.type.ccd_id == FEE_CCD_ID_2)
+		tbl = fee_ccd2_bad_pixels;
+
+	if (pkt->hdr.type.ccd_id == FEE_CCD_ID_4)
+		tbl = fee_ccd4_bad_pixels;
+
+	if (!tbl)
+		return 1;
+
+	return test_bit(idx, tbl);
 }
 
 
@@ -211,7 +284,7 @@ int fee_event_is_xray(struct fee_data_pkt *pkt,
 
 	if (ev->pix[FEE_EV_PIXEL_IDX] > centre_th) {
 #if 0
-		printf("Event pixel over threshold, not an x-ray\n");
+		DBG("Event pixel over threshold, not an x-ray\n");
 		fee_pkt_show_event(pkt);
 #endif
 		return 0;
@@ -228,7 +301,7 @@ int fee_event_is_xray(struct fee_data_pkt *pkt,
 
 	if (sum > sum_th) {
 #if 0
-		printf("Ring sum (%d) over threshold, not an x-ray\n", sum);
+		DBG("Ring sum (%d) over threshold, not an x-ray\n", sum);
 		fee_pkt_show_event(pkt);
 #endif
 		return 0;
@@ -253,7 +326,7 @@ int fee_event_is_xray(struct fee_data_pkt *pkt,
 
 	if (cnt > PIXEL_RING_COUNT_MAX) {
 #if 0
-		printf("Too many ring pixels (%d) over threshold, not an x-ray\n", cnt);
+		DBG("Too many ring pixels (%d) over threshold, not an x-ray\n", cnt);
 		fee_pkt_show_event(pkt);
 #endif
 		return 0;
@@ -265,6 +338,128 @@ int fee_event_is_xray(struct fee_data_pkt *pkt,
 }
 
 
+/**
+ * @brief destroy a FF data aggregator structure
+ */
+
+void fee_ff_aggregator_destroy(struct fee_ff_data *ff)
+{
+	if (!ff)
+		return;
+
+	free(ff->data);
+	free(ff);
+}
+
+
+/**
+ * @brief create a FF data aggregator structure
+ *
+ * @returns NULL on error, pointer otherwise
+ *
+ * @warn make sure the FEE/DPU register mirror is synced before calling this
+ *	 function
+ */
+
+struct fee_ff_data *fee_ff_aggregator_create(void)
+{
+	struct fee_ff_data *ff;
+
+
+	/* we need the pointers and counters to be cleared */
+	ff = (struct fee_ff_data *) calloc(sizeof(struct fee_ff_data), 1);
+	if (!ff) {
+		DBG("Could not allocate fee data container");
+		return NULL;
+	}
+
+	ff->n_elem  = FEE_CCD_IMG_SEC_ROWS * FEE_CCD_IMG_SEC_COLS;
+
+	ff->data = (uint16_t *) malloc(sizeof(uint16_t) * ff->n_elem);
+	if (!ff->data) {
+		DBG("Could not allocate data buffer");
+		free(ff);
+		return NULL;
+	}
+
+
+	/* FF modes read only one CCD at a time
+	 * as per reg map v0.22, the FEE interprets any value in the
+	 * register != 1 as CCD4, otherwise CCD2
+	 * I guess this is so a readout is guaranteed when starting the mode
+	 */
+	if (smile_fee_get_ccd_readout(1))
+		ff->ccd_id = FEE_CCD_ID_2;
+	else
+		ff->ccd_id = FEE_CCD_ID_4;
+
+
+	return ff;
+}
+
+
+/**
+ * @brief frame data aggeregator
+ *
+ * returns 0 if frame is incomplete
+ *	   1 if last_pkt was set (== data frame ready)
+ *	  -1 on error
+ *
+ * @warn this function requires all packet header values to be in correct
+ *	 endianess for the architecture, i.e. use fee_pkt_hdr_to_cpu() first
+ */
+
+int fee_ff_aggregate(struct fee_ff_data *ff, struct fee_data_pkt *pkt)
+{
+	int ret = 0;
+	ssize_t n_elem;
+
+
+	if (!ff)
+		goto error;
+
+	if (!pkt)
+		goto error;
+
+
+
+	if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_HK) {
+		/* XXX HK is currently incomplete; this must be fixed in the
+		 * FEE HW; we copy the data as long it does not exceed
+		 * our allocate size
+		 */
+		if (pkt->hdr.data_len <= FEE_HK_PACKET_DATA_LEN) {
+			memcpy(&ff->hk, &pkt->data, pkt->hdr.data_len);
+		} else {
+			DBG("HK packet is oversized!\n");
+			goto error;
+		}
+	}
+
+	if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_DATA) {
+
+		n_elem = (ssize_t) pkt->hdr.data_len / sizeof(uint16_t);
+
+		if ((ssize_t) ff->n - n_elem < (ssize_t) ff->n_elem) {
+			memcpy(&ff->data[ff->n], &pkt->data, pkt->hdr.data_len);
+			ff->n += n_elem;
+		} else {
+			printf("FF data oversized! %d vs %d \n", ff->n - n_elem, ff->n_elem);
+			goto error;
+		}
+
+		/* only last packet marker in last packet marks last packet in
+		 * frame ;)
+		 */
+		if (pkt->hdr.type.last_pkt)
+			ret = 1;
+	}
+
+	return ret;
+
+error:
+	return -1;
+}
 
 
 
@@ -322,7 +517,7 @@ struct fee_ft_data *fee_ft_aggregator_create(void)
 		bins = 24;
 		break;
 	default:
-		printf("Unknown binning mode, cannot continue\n");
+		DBG("Unknown binning mode, cannot continue\n");
 		return NULL;
 	}
 
@@ -330,7 +525,7 @@ struct fee_ft_data *fee_ft_aggregator_create(void)
 	/* we need the pointers and counters to be cleared */
 	ft = (struct fee_ft_data *) calloc(sizeof(struct fee_ft_data), 1);
 	if (!ft) {
-		printf("Could not allocate fee data container");
+		DBG("Could not allocate fee data container");
 		return NULL;
 	}
 
@@ -345,7 +540,7 @@ struct fee_ft_data *fee_ft_aggregator_create(void)
 
 	ft->data = (uint16_t *) malloc(sizeof(uint16_t) * ft->n_elem * nodes);
 	if (!ft->data) {
-		printf("Could not allocate data buffer");
+		DBG("Could not allocate data buffer");
 		free(ft);
 		return NULL;
 	}
@@ -390,8 +585,7 @@ static int fee_ft_aggregate_assign_data(struct fee_ft_data *ft, struct fee_data_
 				memcpy(&ft->E2[ft->n_E2], &pkt->data, pkt->hdr.data_len);
 				ft->n_E2 += n_elem;
 			} else {
-				printf("E2 data oversized!\n");
-				exit(-1);
+				DBG("E2 data oversized!\n");
 				return -1;
 			}
 		}
@@ -401,7 +595,7 @@ static int fee_ft_aggregate_assign_data(struct fee_ft_data *ft, struct fee_data_
 				memcpy(&ft->E4[ft->n_E4], &pkt->data, pkt->hdr.data_len);
 				ft->n_E4 += n_elem;
 			} else {
-				printf("E4 data oversized!\n");
+				DBG("E4 data oversized!\n");
 				return -1;
 			}
 		}
@@ -415,7 +609,7 @@ static int fee_ft_aggregate_assign_data(struct fee_ft_data *ft, struct fee_data_
 				memcpy(&ft->F2[ft->n_F2], &pkt->data, pkt->hdr.data_len);
 				ft->n_F2 += n_elem;
 			} else {
-				printf("F2 data oversized!\n");
+				DBG("F2 data oversized!\n");
 				return -1;
 			}
 		}
@@ -425,13 +619,19 @@ static int fee_ft_aggregate_assign_data(struct fee_ft_data *ft, struct fee_data_
 				memcpy(&ft->F4[ft->n_F4], &pkt->data, pkt->hdr.data_len);
 				ft->n_F4 += n_elem;
 			} else {
-				printf("F4 data oversized!\n");
+				DBG("F4 data oversized!\n");
 				return -1;
 			}
 		}
 	}
 
+	return 0;
+}
 
+
+
+static int fee_ft_frame_complete(struct fee_ft_data *ft, struct fee_data_pkt *pkt)
+{
 	/* clear the side bit in the readout field on last packet marker
 	 * until none remain
 	 */
@@ -454,9 +654,9 @@ static int fee_ft_aggregate_assign_data(struct fee_ft_data *ft, struct fee_data_
 	if (ft->readout)
 		return 0;
 
-	/* none remain */
 	return 1;
 }
+
 
 
 /**
@@ -476,37 +676,44 @@ int fee_ft_aggregate(struct fee_ft_data *ft, struct fee_data_pkt *pkt)
 
 
 	if (!ft)
-		return -1;
+		goto error;
 
 	if (!pkt)
-		return -1;
+		goto error;
 
 	if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_DATA) {
 
 		ret = fee_ft_aggregate_assign_data(ft,pkt);
 
 	} else if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_HK) {
-		/* HK is currently incomplete; this must be fixed in the
+		/* XXX HK is currently incomplete; this must be fixed in the
 		 * FEE HW; we copy the data as long it does not exceed
 		 * our allocate size
 		 */
 		if (pkt->hdr.data_len <= FEE_HK_PACKET_DATA_LEN) {
 			memcpy(&ft->hk, &pkt->data, pkt->hdr.data_len);
 		} else {
-			printf("HK packet is oversized!\n");
-			ret = -1;
+			DBG("HK packet is oversized!\n");
+			goto error;
 		}
+
 	} else if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_EV_DET) {
 		ret = 0;	/* don't care */
 	} else if (pkt->hdr.type.pkt_type == FEE_PKT_TYPE_WMASK) {
 		ret = 0;	/* don't care */
 	} else {
-		printf("Unknown pkt type %d\n", pkt->hdr.fee_pkt_type);
-		ret = -1;
+		DBG("Unknown pkt type %d\n", pkt->hdr.fee_pkt_type);
+		goto error;
 	}
+
+	if (!ret)
+		ret = fee_ft_frame_complete(ft, pkt);
 
 
 	return ret;
+
+error:
+	return -1;
 }
 
 
@@ -525,7 +732,7 @@ void fee_display_event(const struct fee_event_detection *pkt)
 	if (!pkt)
 		return;
 
-	printf("\n\tCOL %d ROW %d\n", pkt->col, pkt->row);
+	DBG("\n\tCOL %d ROW %d\n", pkt->col, pkt->row);
 
 	/* as per MSSL-SMILE-SXI-IRD-0001, req. MSSL-IF-91  tbl 8-11,
 	 * the upper left pixel is the last pixel in the data
@@ -533,15 +740,15 @@ void fee_display_event(const struct fee_event_detection *pkt)
 	 */
 	for (i = FEE_EV_ROWS - 1; i >= 0; i--) {
 
-		printf("\t");
+		DBG("\t");
 
 		for (j = 0; j <  FEE_EV_COLS; j++)
-			printf("%05d ", pkt->pix[j + i * FEE_EV_COLS]);
+			DBG("%05d ", pkt->pix[j + i * FEE_EV_COLS]);
 
-		printf("\n");
+		DBG("\n");
 	}
 
-	printf("\n");
+	DBG("\n");
 }
 
 

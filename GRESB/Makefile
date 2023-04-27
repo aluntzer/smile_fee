@@ -1,18 +1,14 @@
-CC               = gcc
-SOURCEDIR	 = ./ 
-INCLUDEDIR       = ./
-BUILDDIR         = ./
-PATH            +=
-CFLAGS          := -O2 -W -Wall -Wextra #-Wno-unused #-Werror -pedantic 
-CPPFLAGS        := -I$(INCLUDEDIR) -I../FEE -DDEBUG
-LDFLAGS         := -lpthread
-SOURCES         := $(wildcard *.c) ../FEE/rmap.c
-OBJECTS         := $(patsubst %.c, $(BUILDDIR)/%.o, $(subst $(SOURCEDIR)/,, $(SOURCES)))
-TARGET          := gresb_bridge 
+.PHONY: all
+all:	libgresb-dpu libgresb-pc
 
+libgresb-dpu:
+#	make -f ./Makefile-dpu.mk
 
-all: $(SOURCES)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) $^ -o $(TARGET)
+libgresb-pc:
+	make -f ./Makefile-pc.mk
 
+.PHONY: clean
+.IGNORE: clean
 clean:
-	rm -f $(TARGET)
+#	make -f ./Makefile-dpu.mk clean
+	make -f ./Makefile-pc.mk clean
